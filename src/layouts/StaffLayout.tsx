@@ -1,26 +1,18 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
-  MessageSquare,
-  Megaphone,
-  Settings,
-  Bell,
-  Menu,
-  X,
-  Activity,
-  ChevronRight,
-  LogOut,
-  Zap,
+  LayoutDashboard, MessageSquare, Megaphone, Settings,
+  Brain, Menu, X, ChevronRight, Activity, LogOut,
+  Bell, Users, ArrowUpRight,
 } from 'lucide-react';
 
 const clinicName = import.meta.env.VITE_CLINIC_NAME || 'ABC Healthcare';
 
 const navItems = [
-  { to: '/staff', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/staff/feedback', label: 'Feedback', icon: MessageSquare },
-  { to: '/staff/campaigns', label: 'Campaigns', icon: Megaphone },
-  { to: '/staff/settings', label: 'Settings', icon: Settings },
+  { to: '/staff',            label: 'Dashboard',  icon: LayoutDashboard, end: true },
+  { to: '/staff/feedback',   label: 'Feedback',   icon: MessageSquare },
+  { to: '/staff/campaigns',  label: 'Campaigns',  icon: Megaphone },
+  { to: '/staff/settings',   label: 'Settings',   icon: Settings },
 ];
 
 export function StaffLayout() {
@@ -28,149 +20,134 @@ export function StaffLayout() {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-stone-50 flex">
+    <div className="min-h-screen bg-surface-subtle flex">
 
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-20 bg-slate-900/40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-          aria-hidden
-        />
+        <div className="fixed inset-0 z-20 bg-ink-DEFAULT/30 lg:hidden"
+          onClick={() => setSidebarOpen(false)} aria-hidden />
       )}
 
-      {/* Sidebar */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Sidebar                                                             */}
+      {/* ------------------------------------------------------------------ */}
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-stone-200 flex flex-col',
-          'transform transition-transform duration-200',
+          'fixed inset-y-0 left-0 z-30 w-60 bg-white border-r border-surface-border flex flex-col',
+          'transition-transform duration-200',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:relative lg:translate-x-0',
         ].join(' ')}
         aria-label="Staff navigation"
       >
         {/* Brand */}
-        <div className="flex items-center gap-2.5 px-5 h-16 border-b border-stone-100 shrink-0">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
-            style={{ background: 'linear-gradient(135deg, #16a34a, #ea580c)' }}
-          >
-            <Activity className="h-4 w-4 text-white" aria-hidden />
+        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-surface-border shrink-0">
+          <div className="w-7 h-7 rounded-lg bg-ink-DEFAULT flex items-center justify-center shrink-0">
+            <Brain className="h-3.5 w-3.5 text-white" aria-hidden />
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-slate-900 truncate">ReviewBridge</p>
-            <p className="text-xs text-slate-500 truncate">{clinicName}</p>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold text-ink-DEFAULT leading-none">ReviewBridge</p>
+            <p className="text-[10px] text-ink-subtle leading-none mt-0.5 truncate">{clinicName}</p>
           </div>
-          <button
-            className="ml-auto lg:hidden text-slate-400 hover:text-slate-600"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Close sidebar"
-          >
-            <X className="h-5 w-5" aria-hidden />
+          <button className="lg:hidden text-ink-subtle hover:text-ink-DEFAULT"
+            onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
+            <X className="h-4 w-4" aria-hidden />
           </button>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
           {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
+            <NavLink key={to} to={to} end={end}
               onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                [
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150',
-                  isActive
-                    ? 'bg-green-50 text-green-700'
-                    : 'text-slate-600 hover:bg-stone-100 hover:text-slate-900',
-                ].join(' ')
-              }
+              className={({ isActive }) => [
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                isActive
+                  ? 'bg-primary-50 text-primary-700'
+                  : 'text-ink-muted hover:bg-surface-raised hover:text-ink-DEFAULT',
+              ].join(' ')}
             >
               {({ isActive }) => (
                 <>
-                  <Icon
-                    className={`h-4 w-4 shrink-0 ${isActive ? 'text-green-600' : 'text-slate-400'}`}
-                    aria-hidden
-                  />
+                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary-600' : 'text-ink-subtle'}`} aria-hidden />
                   {label}
-                  {isActive && (
-                    <ChevronRight className="h-3 w-3 ml-auto text-green-400" aria-hidden />
-                  )}
+                  {isActive && <ChevronRight className="h-3 w-3 ml-auto text-primary-400" aria-hidden />}
                 </>
               )}
             </NavLink>
           ))}
+
+          {/* Divider */}
+          <div className="pt-4 pb-1">
+            <p className="px-3 text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Quick Access</p>
+          </div>
+
+          <button
+            onClick={() => { navigate('/desk'); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-ink-muted hover:bg-surface-raised hover:text-ink-DEFAULT transition-colors"
+          >
+            <Activity className="h-4 w-4 text-ink-subtle shrink-0" aria-hidden />
+            Automation Desk
+            <ArrowUpRight className="h-3 w-3 ml-auto text-ink-subtle" aria-hidden />
+          </button>
+
+          <button
+            onClick={() => { navigate('/staff/feedback'); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-ink-muted hover:bg-surface-raised hover:text-ink-DEFAULT transition-colors"
+          >
+            <Users className="h-4 w-4 text-ink-subtle shrink-0" aria-hidden />
+            All Patients
+            <ArrowUpRight className="h-3 w-3 ml-auto text-ink-subtle" aria-hidden />
+          </button>
         </nav>
 
-        {/* Bottom actions */}
-        <div className="p-4 border-t border-stone-100 space-y-1 shrink-0">
+        {/* Footer */}
+        <div className="px-3 py-3 border-t border-surface-border shrink-0">
           <button
-            onClick={() => { navigate('/demo'); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-amber-700 hover:bg-amber-50 transition-colors"
+            onClick={() => { navigate('/'); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-ink-subtle hover:bg-surface-raised hover:text-ink-DEFAULT transition-colors"
           >
-            <Zap className="h-4 w-4 text-amber-500 shrink-0" aria-hidden />
-            Demo Launcher
-          </button>
-          <button
-            onClick={() => { navigate('/login'); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-500 hover:bg-stone-100 transition-colors"
-          >
-            <LogOut className="h-4 w-4 text-slate-400 shrink-0" aria-hidden />
-            Sign out
+            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
+            Exit to Setup
           </button>
         </div>
       </aside>
 
-      {/* Main content */}
+      {/* ------------------------------------------------------------------ */}
+      {/* Main                                                                */}
+      {/* ------------------------------------------------------------------ */}
       <div className="flex-1 flex flex-col min-w-0">
 
         {/* Top bar */}
-        <header className="h-16 bg-white border-b border-stone-200 flex items-center gap-4 px-4 lg:px-6 shrink-0">
-          <button
-            className="lg:hidden text-slate-500 hover:text-slate-700"
-            onClick={() => setSidebarOpen(true)}
-            aria-label="Open navigation"
-          >
+        <header className="h-14 bg-white border-b border-surface-border flex items-center gap-3 px-4 lg:px-6 shrink-0">
+          <button className="lg:hidden text-ink-subtle hover:text-ink-DEFAULT"
+            onClick={() => setSidebarOpen(true)} aria-label="Open navigation">
             <Menu className="h-5 w-5" aria-hidden />
           </button>
 
-          {/* Gradient page title bar */}
-          <div
-            className="hidden sm:block h-6 w-1 rounded-full"
-            style={{ background: 'linear-gradient(180deg, #16a34a, #ea580c)' }}
-            aria-hidden
-          />
-
           <div className="flex-1" />
 
-          <span className="hidden sm:block text-sm text-slate-500">
-            {new Date().toLocaleDateString('en-IN', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric',
-            })}
+          {/* Date */}
+          <span className="hidden md:block text-xs text-ink-subtle">
+            {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
 
+          {/* Notification */}
           <button
-            className="relative text-slate-500 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-500 rounded"
+            className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-raised text-ink-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
             aria-label="Notifications"
           >
-            <Bell className="h-5 w-5" aria-hidden />
-            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-orange-500" aria-hidden />
+            <Bell className="h-4 w-4" aria-hidden />
+            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden />
           </button>
 
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-            style={{ background: 'linear-gradient(135deg, #16a34a, #ca8a04)' }}
-            aria-label="Staff profile"
-          >
+          {/* Avatar */}
+          <div className="w-8 h-8 rounded-full bg-ink-DEFAULT text-white text-xs font-bold flex items-center justify-center select-none">
             DR
           </div>
         </header>
 
-        {/* Page content */}
+        {/* Page */}
         <main className="flex-1 overflow-auto p-4 lg:p-6">
           <Outlet />
         </main>
