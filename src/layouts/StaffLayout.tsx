@@ -1,31 +1,83 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, Navigate } from 'react-router-dom';
 import {
-  LayoutDashboard, MessageSquare, Megaphone, Settings,
-  Brain, Menu, X, ChevronRight, Activity, LogOut,
-  Bell, Users, ArrowUpRight,
+  LayoutDashboard,
+  MessageSquare,
+  Megaphone,
+  Settings as SettingsIcon,
+  Menu,
+  X,
+  ChevronRight,
+  LogOut,
+  ShieldCheck,
+  Building2,
+  ExternalLink,
+  FileSpreadsheet,
+  BadgeCheck,
+  Sparkles,
+  Copy,
+  Check,
 } from 'lucide-react';
-
-const clinicName = import.meta.env.VITE_CLINIC_NAME || 'ABC Healthcare';
-
-const navItems = [
-  { to: '/staff',            label: 'Dashboard',  icon: LayoutDashboard, end: true },
-  { to: '/staff/feedback',   label: 'Feedback',   icon: MessageSquare },
-  { to: '/staff/campaigns',  label: 'Campaigns',  icon: Megaphone },
-  { to: '/staff/settings',   label: 'Settings',   icon: Settings },
-];
+import { useAuth } from '../context/AuthContext';
 
 export function StaffLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const navigate = useNavigate();
+  const {
+    currentUser,
+    currentHospital,
+    role,
+    isSuperAdmin,
+    isStaff,
+    logout,
+  } = useAuth();
+
+  if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // Navigation items strictly tailored to the authenticated role
+  const mainNavItems = [
+    ...(isSuperAdmin
+      ? [{ to: '/staff/super-admin', label: 'Super Admin Network', icon: ShieldCheck }]
+      : []),
+    {
+      to: '/staff',
+      label: isStaff ? 'Patient Consultations' : 'Clinic Dashboard',
+      icon: LayoutDashboard,
+      end: true,
+    },
+    ...(!isStaff
+      ? [
+          { to: '/staff/feedback', label: 'Reviews & Feedback', icon: MessageSquare },
+        ]
+      : []),
+  ];
+
+  const automationNavItems = !isStaff
+    ? [
+        { to: '/staff/sheet-sync', label: 'Spreadsheet Sync', icon: FileSpreadsheet },
+        { to: '/staff/campaigns', label: 'WhatsApp Campaigns', icon: Megaphone },
+      ]
+    : [];
+
+  const handleCopyReviewLink = () => {
+    const link = `${window.location.origin}/review?token=44444444-4444-4444-4444-444444444441`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   return (
-    <div className="min-h-screen bg-surface-subtle flex">
-
+    <div className="min-h-screen bg-slate-50 flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-20 bg-ink-DEFAULT/30 lg:hidden"
-          onClick={() => setSidebarOpen(false)} aria-hidden />
+        <div
+          className="fixed inset-0 z-20 bg-slate-900/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden
+        />
       )}
 
       {/* ------------------------------------------------------------------ */}
@@ -33,122 +85,293 @@ export function StaffLayout() {
       {/* ------------------------------------------------------------------ */}
       <aside
         className={[
-          'fixed inset-y-0 left-0 z-30 w-60 bg-white border-r border-surface-border flex flex-col',
-          'transition-transform duration-200',
+          'fixed inset-y-0 left-0 z-30 w-64 bg-white border-r border-slate-200 flex flex-col shadow-sm',
+          'transition-transform duration-200 ease-in-out',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           'lg:relative lg:translate-x-0',
         ].join(' ')}
-        aria-label="Staff navigation"
+        aria-label="Navigation"
       >
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 px-4 h-14 border-b border-surface-border shrink-0">
-          <div className="w-7 h-7 rounded-lg bg-ink-DEFAULT flex items-center justify-center shrink-0">
-            <Brain className="h-3.5 w-3.5 text-white" aria-hidden />
-          </div>
+        {/* Hospital Branding Header */}
+        <div className="flex items-center gap-3 px-5 h-20 border-b border-slate-100 shrink-0">
+          {currentHospital?.logo && !isSuperAdmin ? (
+            <img
+              src={currentHospital.logo}
+              alt={currentHospital.name}
+              className="w-10 h-10 rounded-xl object-cover border border-slate-200 shadow-xs shrink-0"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+              <Building2 className="w-5 h-5" />
+            </div>
+          )}
+
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-ink-DEFAULT leading-none">ReviewBridge</p>
-            <p className="text-[10px] text-ink-subtle leading-none mt-0.5 truncate">{clinicName}</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm font-bold text-slate-900 leading-tight truncate">
+                {isSuperAdmin
+                  ? 'RescueBridge Global'
+                  : currentHospital?.name || 'Hospital Portal'}
+              </p>
+              {!isSuperAdmin && (
+                <span title="Verified Clinic">
+                  <BadgeCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-500 font-medium leading-none mt-1 truncate">
+              {isSuperAdmin
+                ? 'Super Admin Network'
+                : `${currentHospital?.subdomain || 'portal'}.rescuebridge.com`}
+            </p>
           </div>
-          <button className="lg:hidden text-ink-subtle hover:text-ink-DEFAULT"
-            onClick={() => setSidebarOpen(false)} aria-label="Close sidebar">
-            <X className="h-4 w-4" aria-hidden />
+          <button
+            className="lg:hidden text-slate-400 hover:text-slate-900 p-1"
+            onClick={() => setSidebarOpen(false)}
+            aria-label="Close sidebar"
+          >
+            <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
-          {navItems.map(({ to, label, icon: Icon, end }) => (
-            <NavLink key={to} to={to} end={end}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) => [
-                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-ink-muted hover:bg-surface-raised hover:text-ink-DEFAULT',
-              ].join(' ')}
-            >
-              {({ isActive }) => (
-                <>
-                  <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-primary-600' : 'text-ink-subtle'}`} aria-hidden />
-                  {label}
-                  {isActive && <ChevronRight className="h-3 w-3 ml-auto text-primary-400" aria-hidden />}
-                </>
-              )}
-            </NavLink>
-          ))}
-
-          {/* Divider */}
-          <div className="pt-4 pb-1">
-            <p className="px-3 text-[10px] font-bold text-ink-subtle uppercase tracking-widest">Quick Access</p>
+        {/* Navigation Sections */}
+        <div className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
+          {/* Main Navigation */}
+          <div>
+            <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+              Overview & Care
+            </p>
+            <nav className="space-y-1">
+              {mainNavItems.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  onClick={() => setSidebarOpen(false)}
+                  className={({ isActive }) => [
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all',
+                    isActive
+                      ? 'bg-emerald-50 text-emerald-800 font-bold shadow-xs'
+                      : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900',
+                  ].join(' ')}
+                >
+                  {({ isActive }) => (
+                    <>
+                      <Icon
+                        className={`h-4 w-4 shrink-0 transition-colors ${
+                          isActive ? 'text-emerald-600' : 'text-slate-400'
+                        }`}
+                        aria-hidden
+                      />
+                      <span>{label}</span>
+                      {isActive && (
+                        <ChevronRight className="h-3.5 w-3.5 ml-auto text-emerald-600" aria-hidden />
+                      )}
+                    </>
+                  )}
+                </NavLink>
+              ))}
+            </nav>
           </div>
 
-          <button
-            onClick={() => { navigate('/desk'); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-ink-muted hover:bg-surface-raised hover:text-ink-DEFAULT transition-colors"
-          >
-            <Activity className="h-4 w-4 text-ink-subtle shrink-0" aria-hidden />
-            Automation Desk
-            <ArrowUpRight className="h-3 w-3 ml-auto text-ink-subtle" aria-hidden />
-          </button>
+          {/* Automations */}
+          {automationNavItems.length > 0 && (
+            <div>
+              <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Automations & Sync
+              </p>
+              <nav className="space-y-1">
+                {automationNavItems.map(({ to, label, icon: Icon }) => (
+                  <NavLink
+                    key={to}
+                    to={to}
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) => [
+                      'flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all',
+                      isActive
+                        ? 'bg-emerald-50 text-emerald-800 font-bold shadow-xs'
+                        : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900',
+                    ].join(' ')}
+                  >
+                    {({ isActive }) => (
+                      <>
+                        <Icon
+                          className={`h-4 w-4 shrink-0 transition-colors ${
+                            isActive ? 'text-emerald-600' : 'text-slate-400'
+                          }`}
+                          aria-hidden
+                        />
+                        <span>{label}</span>
+                        {isActive && (
+                          <ChevronRight className="h-3.5 w-3.5 ml-auto text-emerald-600" aria-hidden />
+                        )}
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </nav>
+            </div>
+          )}
 
-          <button
-            onClick={() => { navigate('/staff/feedback'); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-ink-muted hover:bg-surface-raised hover:text-ink-DEFAULT transition-colors"
-          >
-            <Users className="h-4 w-4 text-ink-subtle shrink-0" aria-hidden />
-            All Patients
-            <ArrowUpRight className="h-3 w-3 ml-auto text-ink-subtle" aria-hidden />
-          </button>
-        </nav>
+          {/* Settings for Admins */}
+          {!isStaff && (
+            <div>
+              <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                Preferences
+              </p>
+              <NavLink
+                to="/staff/settings"
+                onClick={() => setSidebarOpen(false)}
+                className={({ isActive }) => [
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all',
+                  isActive
+                    ? 'bg-emerald-50 text-emerald-800 font-bold shadow-xs'
+                    : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900',
+                ].join(' ')}
+              >
+                {({ isActive }) => (
+                  <>
+                    <SettingsIcon
+                      className={`h-4 w-4 shrink-0 transition-colors ${
+                        isActive ? 'text-emerald-600' : 'text-slate-400'
+                      }`}
+                      aria-hidden
+                    />
+                    <span>Hospital Settings</span>
+                  </>
+                )}
+              </NavLink>
+            </div>
+          )}
 
-        {/* Footer */}
-        <div className="px-3 py-3 border-t border-surface-border shrink-0">
-          <button
-            onClick={() => { navigate('/'); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium text-ink-subtle hover:bg-surface-raised hover:text-ink-DEFAULT transition-colors"
-          >
-            <LogOut className="h-4 w-4 shrink-0" aria-hidden />
-            Exit to Setup
-          </button>
+          {/* Quick Review Link Widget */}
+          <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white rounded-2xl p-4 shadow-sm space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+                <Sparkles className="w-3 h-3" />
+                Live Review Page
+              </span>
+              <a
+                href="/review?token=44444444-4444-4444-4444-444444444441"
+                target="_blank"
+                rel="noreferrer"
+                className="text-slate-400 hover:text-white transition-colors"
+                title="Open Review Page in New Tab"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Fast-track 5★ Google reviews with your hospital's branded funnel.
+            </p>
+            <button
+              onClick={handleCopyReviewLink}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 px-3 bg-white/10 hover:bg-white/15 text-white text-xs font-semibold rounded-lg transition-colors border border-white/10"
+            >
+              {copiedLink ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-400" />
+                  Copied Link
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5 text-slate-300" />
+                  Copy Review Link
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* User Profile & Sign Out Footer */}
+        <div className="p-3 border-t border-slate-100 shrink-0">
+          <div className="flex items-center gap-3 px-2 py-2">
+            <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center shrink-0">
+              {currentUser?.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-900 truncate">{currentUser?.name}</p>
+              <p className="text-[10px] text-slate-500 capitalize truncate">
+                {role === 'super_admin'
+                  ? 'Super Administrator'
+                  : role === 'hospital_admin'
+                  ? 'Hospital Administrator'
+                  : 'Front Desk Staff'}
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Sign Out"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Main                                                                */}
+      {/* Main Content Area                                                   */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Top Navbar */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 shrink-0">
+          <div className="flex items-center gap-3">
+            <button
+              className="lg:hidden text-slate-400 hover:text-slate-900 p-1"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open navigation"
+            >
+              <Menu className="h-5 w-5" aria-hidden />
+            </button>
 
-        {/* Top bar */}
-        <header className="h-14 bg-white border-b border-surface-border flex items-center gap-3 px-4 lg:px-6 shrink-0">
-          <button className="lg:hidden text-ink-subtle hover:text-ink-DEFAULT"
-            onClick={() => setSidebarOpen(true)} aria-label="Open navigation">
-            <Menu className="h-5 w-5" aria-hidden />
-          </button>
+            {/* Breadcrumb / Status Badge */}
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                WhatsApp Cloud Automation Active
+              </span>
+            </div>
+          </div>
 
-          <div className="flex-1" />
+          {/* Quick Actions & User Bar */}
+          <div className="flex items-center gap-3">
+            <a
+              href="/review?token=44444444-4444-4444-4444-444444444441"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-slate-500" />
+              Patient View
+            </a>
 
-          {/* Date */}
-          <span className="hidden md:block text-xs text-ink-subtle">
-            {new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-          </span>
+            <div className="h-4 w-px bg-slate-200 hidden sm:block" />
 
-          {/* Notification */}
-          <button
-            className="relative w-8 h-8 flex items-center justify-center rounded-lg hover:bg-surface-raised text-ink-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"
-            aria-label="Notifications"
-          >
-            <Bell className="h-4 w-4" aria-hidden />
-            <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500" aria-hidden />
-          </button>
+            <div className="text-right hidden md:block">
+              <p className="text-xs font-bold text-slate-900 leading-tight">{currentUser?.name}</p>
+              <p className="text-[10px] text-slate-400 font-mono leading-none mt-0.5">
+                {currentUser?.email}
+              </p>
+            </div>
 
-          {/* Avatar */}
-          <div className="w-8 h-8 rounded-full bg-ink-DEFAULT text-white text-xs font-bold flex items-center justify-center select-none">
-            DR
+            <button
+              onClick={() => {
+                logout();
+                navigate('/login');
+              }}
+              className="px-3 py-1.5 bg-slate-100 hover:bg-red-50 hover:text-red-700 text-slate-700 text-xs font-semibold rounded-lg transition-all"
+            >
+              Sign Out
+            </button>
           </div>
         </header>
 
-        {/* Page */}
-        <main className="flex-1 overflow-auto p-4 lg:p-6">
+        {/* Page Content View */}
+        <main className="flex-1 overflow-auto p-4 lg:p-8 bg-slate-50/50">
           <Outlet />
         </main>
       </div>
