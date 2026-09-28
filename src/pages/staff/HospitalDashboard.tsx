@@ -22,10 +22,12 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { db } from '../../services/db';
+import { useNavigate } from 'react-router-dom';
+import { db, isDateCrossed } from '../../services/db';
 import { Visit, Hospital, SheetType } from '../../types/database';
 
 export default function HospitalDashboard() {
+  const navigate = useNavigate();
   const {
     currentUser,
     currentHospital,
@@ -65,21 +67,21 @@ export default function HospitalDashboard() {
   // Sheet Sync Form State
   const [syncJson, setSyncJson] = useState(`[
   {
-    "sheet_row_id": "ROW-501",
-    "patient_name": "Suresh Raina",
-    "phone": "+919888877777",
-    "department": "Cardiology",
-    "doctor": "Dr. Ramesh Kumar",
-    "visit_date": "${new Date().toISOString().split('T')[0]}",
+    "sheet_row_id": "IMP-8819-15",
+    "patient_name": "Ganesh B",
+    "phone": "+919876543224",
+    "department": "General Medicine",
+    "doctor": "Dr. Rajesh",
+    "visit_date": "15-09-2026",
     "status": "registered"
   },
   {
-    "sheet_row_id": "ROW-502",
-    "patient_name": "Meena Kumari",
-    "phone": "+919777766666",
-    "department": "Orthopedics",
-    "doctor": "Dr. Rajesh Nathan",
-    "visit_date": "${new Date().toISOString().split('T')[0]}",
+    "sheet_row_id": "IMP-8819-14",
+    "patient_name": "Swetha M",
+    "phone": "+919876543223",
+    "department": "General Medicine",
+    "doctor": "Dr. Divya",
+    "visit_date": "14-09-2026",
     "status": "completed"
   }
 ]`);
@@ -246,15 +248,15 @@ export default function HospitalDashboard() {
       {/* ── Executive Hospital Header ─────────────────────────────── */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
         <div className="flex items-center gap-4">
-          {currentHospital?.logo ? (
+          {currentHospital?.logo && !currentHospital.logo.includes('photo-1586773860418-d37222d8fce3') ? (
             <img
               src={currentHospital.logo}
               alt={currentHospital.name}
               className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shadow-xs shrink-0"
             />
           ) : (
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center font-bold shadow-xs shrink-0">
-              <Building2 className="w-7 h-7" />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-600 text-white flex items-center justify-center font-extrabold text-xl shadow-xs shrink-0 tracking-wider">
+              {currentHospital?.name ? currentHospital.name.charAt(0).toUpperCase() : <Building2 className="w-7 h-7" />}
             </div>
           )}
 
@@ -331,11 +333,11 @@ export default function HospitalDashboard() {
           </button>
 
           <button
-            onClick={() => setShowSyncModal(true)}
+            onClick={() => navigate('/staff/sheet-sync')}
             className="inline-flex items-center gap-2 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-xs transition-all"
           >
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Sync Sheets</span>
+            <span>Connect & Sync Sheets</span>
           </button>
 
           <button
@@ -639,20 +641,25 @@ export default function HospitalDashboard() {
 
                       {/* Visit Status */}
                       <td className="px-4 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
-                            v.status === 'completed'
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
-                              : 'bg-amber-50 text-amber-700 border border-amber-200/80'
-                          }`}
-                        >
-                          <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              v.status === 'completed' ? 'bg-emerald-500' : 'bg-amber-500'
-                            }`}
-                          />
-                          {v.status === 'completed' ? 'Completed' : 'In Consultation'}
-                        </span>
+                        {(() => {
+                          const isDone = v.status === 'completed' || isDateCrossed(v.visit_date);
+                          return (
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                                isDone
+                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80'
+                                  : 'bg-amber-50 text-amber-700 border border-amber-200/80'
+                              }`}
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isDone ? 'bg-emerald-500' : 'bg-amber-500'
+                                }`}
+                              />
+                              {isDone ? 'Completed' : 'In Consultation'}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       {/* WhatsApp Status */}
@@ -671,7 +678,11 @@ export default function HospitalDashboard() {
                             {v.review_request.whatsapp_status}
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">Pending completion</span>
+                          <span className="text-slate-400 text-[11px]">
+                            {v.status === 'completed' || isDateCrossed(v.visit_date)
+                              ? 'Ready to Dispatch'
+                              : 'Pending completion'}
+                          </span>
                         )}
                       </td>
 
@@ -691,14 +702,16 @@ export default function HospitalDashboard() {
 
                       {/* Actions */}
                       <td className="px-6 py-4 text-right space-x-1.5">
-                        {v.status !== 'completed' ? (
+                        {!v.review_request ? (
                           <button
                             onClick={() => handleMarkComplete(v.id)}
                             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all"
                             title="Complete consultation and trigger automated WhatsApp review"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            Mark Complete
+                            {v.status === 'completed' || isDateCrossed(v.visit_date)
+                              ? 'Send WhatsApp Review'
+                              : 'Mark Complete'}
                           </button>
                         ) : (
                           <div className="inline-flex items-center gap-1">

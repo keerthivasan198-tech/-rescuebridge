@@ -13,8 +13,10 @@ export type FollowUpStatus = 'none' | 'required' | 'contacted' | 'resolved';
 
 export interface Feedback {
   id: string;
+  hospitalId?: string;
   patientName: string;
   maskedPhone: string;
+  phone?: string;
   visitDate: string;
   visitId: string;
   rating: number;

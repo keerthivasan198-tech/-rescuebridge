@@ -13,6 +13,19 @@ import {
   VisitStatus,
 } from '../types/database';
 
+export const WHATSAPP_REVIEW_TEMPLATE = `Hi [Patient Name]! 💙
+
+Thank you for choosing [Hospital Name] for your care.
+
+We’d love to know about your experience. 🏥
+
+💬 We would be grateful if you could share your experience with us right here in this chat.
+
+You can simply:
+🎤 Send a voice message and tell us about your experience, or
+⌨️ Type your feedback in the chat.
+Your feedback is valuable to us and helps us continuously improve our services. 💙`;
+
 const SEED_HOSPITALS: Hospital[] = [
   {
     id: '11111111-1111-1111-1111-111111111111',
@@ -49,6 +62,7 @@ const SEED_USERS: User[] = [
     name: 'Super Administrator',
     email: 'superadmin@rescuebridge.com',
     role: 'super_admin',
+    password_hash: 'admin123',
     created_at: new Date(Date.now() - 60 * 86400000).toISOString(),
   },
   {
@@ -57,6 +71,7 @@ const SEED_USERS: User[] = [
     name: 'Dr. Ramesh Kumar (Admin)',
     email: 'admin@citycare.com',
     role: 'hospital_admin',
+    password_hash: 'admin123',
     created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
   },
   {
@@ -65,6 +80,7 @@ const SEED_USERS: User[] = [
     name: 'Pooja (Reception Desk)',
     email: 'staff@citycare.com',
     role: 'staff',
+    password_hash: 'staff123',
     created_at: new Date(Date.now() - 20 * 86400000).toISOString(),
   },
   {
@@ -73,116 +89,120 @@ const SEED_USERS: User[] = [
     name: 'Dr. Priya V (Apex Admin)',
     email: 'admin@apexclinic.com',
     role: 'hospital_admin',
+    password_hash: 'admin123',
     created_at: new Date(Date.now() - 14 * 86400000).toISOString(),
   },
 ];
 
-const SEED_PATIENTS: Patient[] = [
-  {
-    id: '33333333-3333-3333-3333-333333333331',
-    hospital_id: '11111111-1111-1111-1111-111111111111',
-    name: 'Kavitha Sundaram',
-    phone: '+919876543210',
-    whatsapp_consent: true,
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333332',
-    hospital_id: '11111111-1111-1111-1111-111111111111',
-    name: 'Arun Kumar',
-    phone: '+919845012345',
-    whatsapp_consent: true,
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333333',
-    hospital_id: '11111111-1111-1111-1111-111111111111',
-    name: 'Deepa Venkat',
-    phone: '+919712345678',
-    whatsapp_consent: true,
-  },
-  {
-    id: '33333333-3333-3333-3333-333333333334',
-    hospital_id: '22222222-2222-2222-2222-222222222222',
-    name: 'Mohammed Farooq',
-    phone: '+919988776655',
-    whatsapp_consent: true,
-  },
-];
+const SEED_PATIENTS: Patient[] = [];
+const SEED_VISITS: Visit[] = [];
+const SEED_REVIEW_REQUESTS: ReviewRequest[] = [];
 
-const SEED_VISITS: Visit[] = [
-  {
-    id: '44444444-4444-4444-4444-444444444441',
-    hospital_id: '11111111-1111-1111-1111-111111111111',
-    patient_id: '33333333-3333-3333-3333-333333333331',
-    department: 'Cardiology',
-    doctor: 'Dr. Ramesh Kumar',
-    visit_date: new Date().toISOString().split('T')[0],
-    status: 'completed',
-    sheet_row_id: 'ROW-101',
-    token: 'token-citycare-kavitha-001',
-    created_at: new Date(Date.now() - 4 * 3600000).toISOString(),
-  },
-  {
-    id: '44444444-4444-4444-4444-444444444442',
-    hospital_id: '11111111-1111-1111-1111-111111111111',
-    patient_id: '33333333-3333-3333-3333-333333333332',
-    department: 'General Medicine',
-    doctor: 'Dr. S. Anita',
-    visit_date: new Date().toISOString().split('T')[0],
-    status: 'registered',
-    sheet_row_id: 'ROW-102',
-    token: 'token-citycare-arun-002',
-    created_at: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-  {
-    id: '44444444-4444-4444-4444-444444444443',
-    hospital_id: '11111111-1111-1111-1111-111111111111',
-    patient_id: '33333333-3333-3333-3333-333333333333',
-    department: 'Orthopedics',
-    doctor: 'Dr. Rajesh Nathan',
-    visit_date: new Date().toISOString().split('T')[0],
-    status: 'completed',
-    sheet_row_id: 'ROW-103',
-    token: 'token-citycare-deepa-003',
-    created_at: new Date(Date.now() - 6 * 3600000).toISOString(),
-  },
-  {
-    id: '44444444-4444-4444-4444-444444444444',
-    hospital_id: '22222222-2222-2222-2222-222222222222',
-    patient_id: '33333333-3333-3333-3333-333333333334',
-    department: 'Pediatrics',
-    doctor: 'Dr. Priya V',
-    visit_date: new Date().toISOString().split('T')[0],
-    status: 'completed',
-    sheet_row_id: 'ROW-201',
-    token: 'token-apex-farooq-001',
-    created_at: new Date(Date.now() - 8 * 3600000).toISOString(),
-  },
-];
+// ---------------------------------------------------------------------------
+// ISO Date and Deterministic UUID Helpers for Database Integrity
+// ---------------------------------------------------------------------------
+export function toIsoDate(dStr?: string | null): string {
+  if (!dStr) return new Date().toISOString().split('T')[0];
+  const str = String(dStr).trim();
+  if (!str) return new Date().toISOString().split('T')[0];
+  // Match DD-MM-YYYY or DD/MM/YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+  // Match YYYY-MM-DD
+  const ymdMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (ymdMatch) {
+    const year = ymdMatch[1];
+    const month = ymdMatch[2].padStart(2, '0');
+    const day = ymdMatch[3].padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+  const parsed = Date.parse(str);
+  if (!isNaN(parsed)) {
+    return new Date(parsed).toISOString().split('T')[0];
+  }
+  return new Date().toISOString().split('T')[0];
+}
 
-const SEED_REVIEW_REQUESTS: ReviewRequest[] = [
-  {
-    id: '55555555-5555-5555-5555-555555555551',
-    hospital_id: '11111111-1111-1111-1111-111111111111',
-    visit_id: '44444444-4444-4444-4444-444444444441',
-    sent_at: new Date(Date.now() - 3 * 3600000).toISOString(),
-    whatsapp_status: 'read',
-    rating: 5,
-    feedback_text: 'Exceptional doctor and warm staff. Very prompt care.',
-    review_channel: 'whatsapp',
-    submitted_at: new Date(Date.now() - 2 * 3600000).toISOString(),
-  },
-  {
-    id: '55555555-5555-5555-5555-555555555553',
-    hospital_id: '11111111-1111-1111-1111-111111111111',
-    visit_id: '44444444-4444-4444-4444-444444444443',
-    sent_at: new Date(Date.now() - 5 * 3600000).toISOString(),
-    whatsapp_status: 'read',
-    rating: 2,
-    feedback_text: 'Waiting time in pharmacy was more than 40 minutes.',
-    review_channel: 'whatsapp',
-    submitted_at: new Date(Date.now() - 4 * 3600000).toISOString(),
-  },
-];
+// ---------------------------------------------------------------------------
+// ID Generators: Name + Unique Random Number (e.g. resuede-7201, ganesh-b-881915)
+// Guarantees no two hospital IDs or patient IDs are ever the same!
+// ---------------------------------------------------------------------------
+export function generateHospitalId(name: string, existingIds?: Set<string>): string {
+  const cleanName = name
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'hospital';
+
+  let randomNum = Math.floor(1000 + Math.random() * 9000);
+  let id = `${cleanName}-${randomNum}`;
+  while (existingIds && existingIds.has(id)) {
+    randomNum = Math.floor(1000 + Math.random() * 9000);
+    id = `${cleanName}-${randomNum}`;
+  }
+  return id;
+}
+
+export function generatePatientId(
+  patientName: string,
+  suffixOrRowId?: string | number,
+  existingIds?: Set<string>
+): string {
+  const cleanName = patientName
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'patient';
+
+  let suffix = '';
+  if (suffixOrRowId) {
+    const digits = String(suffixOrRowId).replace(/\D+/g, '');
+    if (digits) suffix = `-${digits}`;
+  }
+  if (!suffix) {
+    suffix = `-${Math.floor(1000 + Math.random() * 9000)}`;
+  }
+
+  let id = `${cleanName}${suffix}`;
+  while (existingIds && existingIds.has(id)) {
+    const extra = Math.floor(100 + Math.random() * 900);
+    id = `${cleanName}${suffix}-${extra}`;
+  }
+  return id;
+}
+
+export function toPatientUuid(visitUidOrPhone: string): string {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(visitUidOrPhone)) {
+    return visitUidOrPhone;
+  }
+  let hash = 0;
+  for (let i = 0; i < visitUidOrPhone.length; i++) {
+    hash = (hash << 5) - hash + visitUidOrPhone.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(12, '0').slice(-12);
+  const mid = (Math.abs(hash * 31) % 0xffff).toString(16).padStart(4, '0');
+  return `00000000-${mid}-4000-8000-${hex}`;
+}
+
+export function toVisitUuid(visitUidOrPhone: string): string {
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(visitUidOrPhone)) {
+    return visitUidOrPhone;
+  }
+  let hash = 0;
+  for (let i = 0; i < visitUidOrPhone.length; i++) {
+    hash = (hash << 5) - hash + visitUidOrPhone.charCodeAt(i);
+    hash |= 0;
+  }
+  const hex = Math.abs(hash).toString(16).padStart(12, '0').slice(-12);
+  const mid = (Math.abs(hash * 37) % 0xffff).toString(16).padStart(4, '0');
+  return `11111111-${mid}-4000-8000-${hex}`;
+}
 
 // ---------------------------------------------------------------------------
 // LocalStorage Persistence Helpers (Syncs in real-time)
@@ -208,21 +228,162 @@ function setStore<T>(key: string, data: T[]): void {
   }
 }
 
+function isCorruptedText(text?: string | null): boolean {
+  if (!text) return false;
+  return (
+    text.includes('[Content_Types]') ||
+    text.includes('PK\x03\x04') ||
+    text.includes('PK\u0003\u0004') ||
+    (text.includes('PK') && text.includes('.xml')) ||
+    (text.includes('\ufffd') && text.length > 5) ||
+    /^[^\w\s]{3,}.*xml/i.test(text)
+  );
+}
+
+const DUMMY_NAMES = new Set([
+  'rajesh sharma',
+  'anita desai',
+  'suresh kumar',
+  'kavitha sundaram',
+  'arun kumar',
+  'deepa venkat',
+  'mohammed farooq',
+  'suresh raina',
+  'meena kumari',
+  'vijay shankar',
+  'pooja nair',
+  'sunita sharma',
+  'venkatesh rao',
+  'karthik subramanian',
+  'ganesh moorthy'
+]);
+
+function isDummyOrCorrupted(name?: string | null, id?: string | null): boolean {
+  if (!name && !id) return true;
+  if (isCorruptedText(name)) return true;
+  if (name && DUMMY_NAMES.has(name.trim().toLowerCase())) return true;
+  if (id && (id.startsWith('33333333-') || id.startsWith('44444444-') || id.startsWith('55555555-'))) return true;
+  return false;
+}
+
+function cleanCorruptedData(): void {
+  try {
+    const patients = getStore<Patient>('patients', SEED_PATIENTS);
+    const visits = getStore<Visit>('visits', SEED_VISITS);
+
+    const validPatients = patients.filter((p) => !isDummyOrCorrupted(p.name, p.id));
+    const validPatientIdSet = new Set(validPatients.map((p) => p.id));
+    const validVisits = visits.filter(
+      (v) =>
+        validPatientIdSet.has(v.patient_id) &&
+        !isDummyOrCorrupted(v.doctor, v.id) &&
+        !isCorruptedText(v.visit_uid) &&
+        !isCorruptedText(v.sheet_row_id)
+    );
+
+    if (validPatients.length !== patients.length || validVisits.length !== visits.length) {
+      setStore('patients', validPatients);
+      setStore('visits', validVisits);
+    }
+  } catch (err) {
+    console.error('Failed to clean corrupted records:', err);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Date crossed check: Returns true when visit date is strictly earlier than today
+// e.g. visit was 24-06-2026, today is 25-06-2026 => returns true (Completed)
+// ---------------------------------------------------------------------------
+export function isDateCrossed(dateStr?: string | null): boolean {
+  if (!dateStr) return false;
+  const str = String(dateStr).trim();
+  if (!str) return false;
+
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  let visitTime: number | null = null;
+
+  // 1. Check DD-MM-YYYY or DD/MM/YYYY or D-M-YYYY
+  const dmyMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    visitTime = new Date(year, month, day).getTime();
+  } else {
+    // 2. Check YYYY-MM-DD or YYYY/MM/DD
+    const ymdMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (ymdMatch) {
+      const year = parseInt(ymdMatch[1], 10);
+      const month = parseInt(ymdMatch[2], 10) - 1;
+      const day = parseInt(ymdMatch[3], 10);
+      visitTime = new Date(year, month, day).getTime();
+    } else {
+      // 3. Fallback to Date.parse
+      const parsed = Date.parse(str);
+      if (!isNaN(parsed)) {
+        const d = new Date(parsed);
+        visitTime = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+      }
+    }
+  }
+
+  if (visitTime === null || isNaN(visitTime)) return false;
+  return visitTime < todayMidnight;
+}
+
 // ---------------------------------------------------------------------------
 // Multi-Tenant Database Client
 // ---------------------------------------------------------------------------
 export const db = {
   // ── Hospitals ─────────────────────────────────────────────────────────────
   async getHospitals(): Promise<Hospital[]> {
+    const localHospitals = getStore<Hospital>('hospitals', SEED_HOSPITALS);
+    const cleanedLocalHospitals = localHospitals.map((h) => {
+      if (
+        h.id !== '11111111-1111-1111-1111-111111111111' &&
+        h.logo === 'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=128&q=80'
+      ) {
+        return { ...h, logo: undefined };
+      }
+      return h;
+    });
+
     try {
       const { data, error } = await supabase.from('hospitals').select('*');
       if (!error && data && data.length > 0) {
-        return data as Hospital[];
+        const hospitalMap = new Map<string, Hospital>();
+        cleanedLocalHospitals.forEach((h) => {
+          if (h && h.id) hospitalMap.set(h.id, h);
+        });
+        (data as Hospital[]).forEach((remote) => {
+          if (remote && remote.id) {
+            const existing = hospitalMap.get(remote.id);
+            const remoteLogo =
+              remote.id !== '11111111-1111-1111-1111-111111111111' &&
+              remote.logo === 'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=128&q=80'
+                ? undefined
+                : remote.logo;
+
+            hospitalMap.set(remote.id, {
+              ...remote,
+              logo: existing?.logo !== undefined ? existing.logo : remoteLogo,
+              website: existing?.website || (remote as any).website,
+              sync_status: existing?.sync_status || 'active',
+              last_synced: existing?.last_synced || 'Just now',
+            });
+          }
+        });
+        const merged = Array.from(hospitalMap.values());
+        setStore('hospitals', merged);
+        return merged;
       }
-    } catch {
-      // Fall through to local fallback
+    } catch (err) {
+      console.warn('Failed to fetch hospitals from Supabase, using local:', err);
     }
-    return getStore<Hospital>('hospitals', SEED_HOSPITALS);
+    setStore('hospitals', cleanedLocalHospitals);
+    return cleanedLocalHospitals;
   },
 
   async getHospitalById(id: string): Promise<Hospital | null> {
@@ -243,26 +404,79 @@ export const db = {
     hospitalData: Omit<Hospital, 'id' | 'created_at'>,
     adminData?: { name: string; email: string }
   ): Promise<Hospital> {
+    const current = getStore<Hospital>('hospitals', SEED_HOSPITALS);
+    const existingIds = new Set(current.map((h) => h.id));
+    const hospitalId = generateHospitalId(hospitalData.name, existingIds);
+
+    // Compute unique subdomain
+    const existingSubdomains = new Set(
+      current.map((h) => h.subdomain?.toLowerCase().trim()).filter(Boolean)
+    );
+    let finalSubdomain = (hospitalData.subdomain || hospitalData.name)
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'hospital';
+
+    if (existingSubdomains.has(finalSubdomain)) {
+      const parts = hospitalId.split('-');
+      const numPart = parts[parts.length - 1] || Math.floor(1000 + Math.random() * 9000);
+      finalSubdomain = `${finalSubdomain}-${numPart}`;
+    }
+
     const newHospital: Hospital = {
       ...hospitalData,
-      id: crypto.randomUUID(),
+      id: hospitalId,
+      subdomain: finalSubdomain,
       created_at: new Date().toISOString(),
       sync_status: 'active',
       last_synced: 'Just now',
     };
 
-    // Try Supabase first
-    try {
-      await supabase.from('hospitals').insert(newHospital);
-    } catch {
-      // Supabase table not created yet; stored locally
-    }
-
-    const current = getStore<Hospital>('hospitals', SEED_HOSPITALS);
-    const updated = [newHospital, ...current];
+    // 1. Immediately persist to localStorage
+    const updated = [newHospital, ...current.filter((h) => h.id !== newHospital.id)];
     setStore('hospitals', updated);
 
-    // Create first hospital admin if provided
+    // 2. Persist to Supabase with schema-compliant columns (supports TEXT or UUID)
+    try {
+      let supabasePayload = {
+        id: newHospital.id,
+        name: newHospital.name,
+        subdomain: newHospital.subdomain,
+        google_place_id: newHospital.google_place_id || null,
+        sheet_id: newHospital.sheet_id || null,
+        sheet_type: newHospital.sheet_type || 'google_sheets',
+        logo: newHospital.logo || null,
+        whatsapp_template_name: newHospital.whatsapp_template_name || null,
+        created_at: newHospital.created_at,
+      };
+
+      let { error } = await supabase.from('hospitals').insert(supabasePayload);
+
+      // Handle duplicate subdomain key collision by auto-suffixing
+      if (error && error.message && error.message.includes('hospitals_subdomain_key')) {
+        const uniqueSub = `${newHospital.subdomain}-${Math.floor(1000 + Math.random() * 9000)}`;
+        newHospital.subdomain = uniqueSub;
+        supabasePayload.subdomain = uniqueSub;
+        const retry = await supabase.from('hospitals').insert(supabasePayload);
+        error = retry.error;
+      }
+
+      if (error && error.message && error.message.includes('type uuid')) {
+        // Fallback for Supabase before SQL migration
+        const fallbackUuid = toPatientUuid(hospitalId);
+        newHospital.id = fallbackUuid;
+        await supabase.from('hospitals').insert({ ...supabasePayload, id: fallbackUuid });
+      } else if (error) {
+        console.error('Supabase createHospital error:', error);
+        throw new Error(error.message || 'Failed to create hospital in database');
+      }
+    } catch (err: any) {
+      console.error('Failed to insert hospital into Supabase:', err);
+      throw err;
+    }
+
+    // 3. Create first hospital admin if provided
     if (adminData && adminData.email) {
       await this.createUser({
         hospital_id: newHospital.id,
@@ -275,9 +489,40 @@ export const db = {
     return newHospital;
   },
 
+  async updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital> {
+    const hospitals = getStore<Hospital>('hospitals', SEED_HOSPITALS);
+    const idx = hospitals.findIndex((h) => h.id === id);
+    if (idx === -1) throw new Error('Hospital not found');
+
+    const updated: Hospital = {
+      ...hospitals[idx],
+      ...updates,
+    };
+    hospitals[idx] = updated;
+    setStore('hospitals', hospitals);
+
+    try {
+      await supabase.from('hospitals').update({
+        name: updated.name,
+        subdomain: updated.subdomain,
+        google_place_id: updated.google_place_id,
+        logo: updated.logo || null,
+        sheet_id: updated.sheet_id || null,
+        sheet_type: updated.sheet_type || 'google_sheets',
+        whatsapp_template_name: updated.whatsapp_template_name || null,
+      }).eq('id', id);
+    } catch (err) {
+      console.warn('Failed to update hospital in Supabase:', err);
+    }
+
+    return updated;
+  },
+
   // ── Users ─────────────────────────────────────────────────────────────────
   async getUsers(hospitalId?: string | null): Promise<User[]> {
-    let users = getStore<User>('users', SEED_USERS);
+    const localUsers = getStore<User>('users', SEED_USERS);
+    let allUsers = [...localUsers];
+
     try {
       let query = supabase.from('users').select('*');
       if (hospitalId) {
@@ -285,35 +530,116 @@ export const db = {
       }
       const { data, error } = await query;
       if (!error && data && data.length > 0) {
-        users = data as User[];
+        const userMap = new Map<string, User>();
+        // Add local users first
+        localUsers.forEach((u) => {
+          if (u && u.email) {
+            userMap.set(u.email.toLowerCase().trim(), u);
+          }
+        });
+        // Merge with Supabase users
+        (data as User[]).forEach((remote) => {
+          if (remote && remote.email) {
+            const key = remote.email.toLowerCase().trim();
+            const existing = userMap.get(key);
+            userMap.set(key, {
+              ...existing,
+              ...remote,
+              // If local user has custom password_hash, preserve it
+              password_hash: existing?.password_hash || remote.password_hash,
+            });
+          }
+        });
+        allUsers = Array.from(userMap.values());
+        setStore('users', allUsers);
       }
-    } catch {
-      // Fallback
+    } catch (err) {
+      console.warn('Failed to fetch users from Supabase, using local:', err);
     }
 
-    if (!hospitalId) return users;
-    return users.filter(
+    if (!hospitalId) return allUsers;
+    return allUsers.filter(
       (u) => u.hospital_id === hospitalId || u.role === 'super_admin'
     );
   },
 
   async createUser(userData: Omit<User, 'id' | 'created_at'>): Promise<User> {
+    const cleanEmail = userData.email.trim().toLowerCase();
     const newUser: User = {
       ...userData,
+      email: cleanEmail,
       id: crypto.randomUUID(),
       created_at: new Date().toISOString(),
     };
 
-    try {
-      await supabase.from('users').insert(newUser);
-    } catch {}
+    // 1. Immediately persist locally
+    const currentUsers = getStore<User>('users', SEED_USERS);
+    const filtered = currentUsers.filter((u) => u.email.toLowerCase().trim() !== cleanEmail);
+    const updatedUsers = [newUser, ...filtered];
+    setStore('users', updatedUsers);
 
-    const users = getStore<User>('users', SEED_USERS);
-    setStore('users', [newUser, ...users]);
+    // 2. Persist to Supabase
+    try {
+      const userPayload = {
+        id: newUser.id,
+        hospital_id: newUser.hospital_id || null,
+        name: newUser.name,
+        email: cleanEmail,
+        password_hash: newUser.password_hash || null,
+        role: newUser.role,
+        created_at: newUser.created_at,
+      };
+      const { error } = await supabase.from('users').upsert(userPayload, { onConflict: 'email' });
+      if (error) {
+        console.error('Supabase user upsert error:', error);
+        throw new Error(error.message || 'Failed to save user account to database');
+      }
+    } catch (err: any) {
+      console.error('Failed to upsert user into Supabase:', err);
+      throw err;
+    }
+
     return newUser;
   },
 
   // ── Visits & Patients ─────────────────────────────────────────────────────
+  async getPatients(hospitalId?: string | null): Promise<Patient[]> {
+    cleanCorruptedData();
+    let localPatients = getStore<Patient>('patients', []).filter(
+      (p) => !isDummyOrCorrupted(p.name, p.id)
+    );
+
+    try {
+      let query = supabase.from('patients').select('*');
+      if (hospitalId) {
+        query = query.eq('hospital_id', hospitalId);
+      }
+      const { data, error } = await query;
+      if (!error && data) {
+        const patientMap = new Map<string, Patient>();
+        localPatients.forEach((p) => {
+          if (p?.id && !isDummyOrCorrupted(p.name, p.id)) patientMap.set(p.id, p);
+        });
+        (data as Patient[]).forEach((remote) => {
+          if (remote?.id && !isDummyOrCorrupted(remote.name, remote.id)) {
+            const ex = patientMap.get(remote.id);
+            patientMap.set(remote.id, {
+              ...remote,
+              review_sent: ex?.review_sent || false,
+              last_message_content: ex?.last_message_content,
+            });
+          }
+        });
+        const merged = Array.from(patientMap.values());
+        setStore('patients', merged);
+        return hospitalId ? merged.filter((p) => p.hospital_id === hospitalId) : merged;
+      }
+    } catch (err) {
+      console.warn('Supabase getPatients error, falling back to local:', err);
+    }
+    return hospitalId ? localPatients.filter((p) => p.hospital_id === hospitalId) : localPatients;
+  },
+
   async getVisits(
     hospitalId?: string | null,
     filters?: {
@@ -323,13 +649,38 @@ export const db = {
       date?: string;
     }
   ): Promise<Visit[]> {
-    const visits = getStore<Visit>('visits', SEED_VISITS);
-    const patients = getStore<Patient>('patients', SEED_PATIENTS);
-    const hospitals = getStore<Hospital>('hospitals', SEED_HOSPITALS);
-    const reviews = getStore<ReviewRequest>(
-      'review_requests',
-      SEED_REVIEW_REQUESTS
-    );
+    cleanCorruptedData();
+    let visits = getStore<Visit>('visits', []).filter((v) => !isDummyOrCorrupted(v.doctor, v.id));
+    let patients = await this.getPatients(hospitalId);
+    const hospitals = await this.getHospitals();
+    const reviews = getStore<ReviewRequest>('review_requests', []);
+
+    try {
+      let query = supabase.from('visits').select('*').order('created_at', { ascending: false });
+      if (hospitalId) {
+        query = query.eq('hospital_id', hospitalId);
+      }
+      const { data, error } = await query;
+      if (!error && data && data.length > 0) {
+        const visitMap = new Map<string, Visit>();
+        visits.forEach((v) => {
+          if (v?.id && !isDummyOrCorrupted(v.doctor, v.id)) visitMap.set(v.id, v);
+        });
+        (data as Visit[]).forEach((remote) => {
+          if (remote?.id && !isDummyOrCorrupted(remote.doctor, remote.id)) {
+            const ex = visitMap.get(remote.id);
+            visitMap.set(remote.id, {
+              ...remote,
+              review_requested: ex?.review_requested || remote.review_requested || false,
+            });
+          }
+        });
+        visits = Array.from(visitMap.values());
+        setStore('visits', visits);
+      }
+    } catch (err) {
+      console.warn('Supabase getVisits error, falling back to local:', err);
+    }
 
     let filtered = visits;
     if (hospitalId) {
@@ -341,20 +692,75 @@ export const db = {
     if (filters?.doctor && filters.doctor !== 'all') {
       filtered = filtered.filter((v) => v.doctor === filters.doctor);
     }
-    if (filters?.status && filters.status !== 'all') {
-      filtered = filtered.filter((v) => v.status === filters.status);
-    }
     if (filters?.date) {
       filtered = filtered.filter((v) => v.visit_date === filters.date);
     }
 
-    // Hydrate with patient, hospital, review_request
-    return filtered.map((v) => ({
-      ...v,
-      patient: patients.find((p) => p.id === v.patient_id),
-      hospital: hospitals.find((h) => h.id === v.hospital_id),
-      review_request: reviews.find((r) => r.visit_id === v.id),
-    }));
+    // Hydrate with patient, hospital, review_request and mark completed if date crossed or sent
+    const hydrated = filtered
+      .map((v) => {
+        const patient = patients.find((p) => p.id === v.patient_id);
+        const reviewReq = reviews.find((r) => r.visit_id === v.id);
+        const isSent = Boolean(patient?.review_sent || v.review_requested || reviewReq);
+        const dateCrossed = isDateCrossed(v.visit_date);
+        const isCompleted = isSent || dateCrossed || v.status === 'completed';
+
+        return {
+          ...v,
+          status: isCompleted ? ('completed' as const) : ('in_consultation' as const),
+          patient,
+          hospital: hospitals.find((h) => h.id === v.hospital_id),
+          review_request: reviewReq,
+        };
+      })
+      .filter((v) => !isDummyOrCorrupted(v.patient?.name, v.patient?.id) && !isCorruptedText(v.visit_uid));
+
+    if (filters?.status && filters.status !== 'all') {
+      return hydrated.filter((v) => v.status === filters.status);
+    }
+    return hydrated;
+  },
+
+  async purgeCorruptedVisits(hospitalId?: string): Promise<number> {
+    cleanCorruptedData();
+    const visits = getStore<Visit>('visits', []);
+    const patients = getStore<Patient>('patients', []);
+    const patientMap = new Map(patients.map((p) => [p.id, p]));
+    const before = visits.length;
+
+    const clean = visits.filter((v) => {
+      if (hospitalId && v.hospital_id !== hospitalId) return true;
+      const p = patientMap.get(v.patient_id);
+      if (!p || !p.name || isDummyOrCorrupted(p.name, p.id) || isDummyOrCorrupted(v.doctor, v.id) || isCorruptedText(v.visit_uid)) {
+        return false;
+      }
+      return true;
+    });
+
+    setStore('visits', clean);
+    return before - clean.length;
+  },
+
+  async purgeAllDummyData(hospitalId?: string): Promise<void> {
+    cleanCorruptedData();
+    // 1. Clean LocalStorage
+    const cleanPatients = getStore<Patient>('patients', []).filter((p) => !isDummyOrCorrupted(p.name, p.id));
+    const validPatIds = new Set(cleanPatients.map((p) => p.id));
+    const cleanVisits = getStore<Visit>('visits', []).filter((v) => validPatIds.has(v.patient_id) && !isDummyOrCorrupted(v.doctor, v.id));
+    setStore('patients', cleanPatients);
+    setStore('visits', cleanVisits);
+
+    // 2. Clean Supabase
+    try {
+      for (const dummyName of Array.from(DUMMY_NAMES)) {
+        await supabase.from('patients').delete().ilike('name', `%${dummyName}%`);
+      }
+      await supabase.from('patients').delete().like('id', '33333333%');
+      await supabase.from('visits').delete().like('id', '44444444%');
+      await supabase.from('review_requests').delete().like('id', '55555555%');
+    } catch (err) {
+      console.warn('Purge dummy data from Supabase note:', err);
+    }
   },
 
   async createVisit(data: {
@@ -366,49 +772,100 @@ export const db = {
     visit_date?: string;
     whatsapp_consent?: boolean;
     sheet_row_id?: string;
+    status?: VisitStatus;
+    visit_uid?: string;
   }): Promise<Visit> {
-    const patients = getStore<Patient>('patients', SEED_PATIENTS);
+    const patients = getStore<Patient>('patients', []);
+    const phoneClean = data.phone.trim();
+    const patientName = data.patient_name.trim();
 
-    // Look for existing patient with this phone in this hospital
+    const visitUid = data.visit_uid || data.sheet_row_id || `V-${Date.now().toString().slice(-4)}`;
+
+    // Look for existing patient with this phone in this PARTICULAR hospital
     let patient = patients.find(
-      (p) => p.hospital_id === data.hospital_id && p.phone === data.phone
+      (p) => p.hospital_id === data.hospital_id && (p.phone === phoneClean || p.name.toLowerCase() === patientName.toLowerCase())
     );
+
+    const existingPatientIds = new Set(patients.map((p) => p.id));
+    const readablePatientId = generatePatientId(patientName, visitUid, existingPatientIds);
+    const patientId = patient ? patient.id : readablePatientId;
 
     if (!patient) {
       patient = {
-        id: crypto.randomUUID(),
-        hospital_id: data.hospital_id,
-        name: data.patient_name,
-        phone: data.phone,
+        id: patientId,
+        hospital_id: data.hospital_id, // Strictly maintained in this particular hospital
+        name: patientName,
+        phone: phoneClean,
         whatsapp_consent: data.whatsapp_consent ?? true,
         created_at: new Date().toISOString(),
       };
-      setStore('patients', [patient, ...patients]);
+      setStore('patients', [patient, ...patients.filter((p) => p.id !== patientId)]);
       try {
-        await supabase.from('patients').insert(patient);
-      } catch {}
+        const { error } = await supabase.from('patients').upsert({
+          id: patient.id,
+          hospital_id: patient.hospital_id,
+          name: patient.name,
+          phone: patient.phone,
+          whatsapp_consent: patient.whatsapp_consent,
+          created_at: patient.created_at,
+        });
+        if (error && error.message.includes('type uuid')) {
+          const fallbackUuid = toPatientUuid(patient.id);
+          patient.id = fallbackUuid;
+          await supabase.from('patients').upsert({
+            id: fallbackUuid,
+            hospital_id: patient.hospital_id,
+            name: patient.name,
+            phone: patient.phone,
+            whatsapp_consent: patient.whatsapp_consent,
+            created_at: patient.created_at,
+          });
+        }
+      } catch (err) {
+        console.warn('Supabase patient upsert error:', err);
+      }
     }
 
-    const token = `rb-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+    const visitId = toVisitUuid(visitUid);
+    const isoDate = toIsoDate(data.visit_date);
+    const token = `rb-${visitUid.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`;
+    const rawStatus = (data.status || 'registered').toLowerCase();
+    const supabaseStatus: VisitStatus = rawStatus === 'completed' ? 'completed' : 'registered';
+
     const newVisit: Visit = {
-      id: crypto.randomUUID(),
+      id: visitId,
       hospital_id: data.hospital_id,
       patient_id: patient.id,
-      department: data.department,
-      doctor: data.doctor,
-      visit_date: data.visit_date || new Date().toISOString().split('T')[0],
-      status: 'registered',
-      sheet_row_id: data.sheet_row_id || null,
+      department: data.department || 'General Medicine',
+      doctor: data.doctor || 'Duty Medical Officer',
+      visit_date: isoDate,
+      status: supabaseStatus,
+      sheet_row_id: visitUid,
+      visit_uid: visitUid,
       token,
       created_at: new Date().toISOString(),
     };
 
-    const visits = getStore<Visit>('visits', SEED_VISITS);
-    setStore('visits', [newVisit, ...visits]);
+    const visits = getStore<Visit>('visits', []);
+    setStore('visits', [newVisit, ...visits.filter((v) => v.id !== visitId && v.visit_uid !== visitUid)]);
 
     try {
-      await supabase.from('visits').insert(newVisit);
-    } catch {}
+      await supabase.from('visits').upsert({
+        id: newVisit.id,
+        hospital_id: newVisit.hospital_id,
+        patient_id: newVisit.patient_id,
+        department: newVisit.department,
+        doctor: newVisit.doctor,
+        visit_date: newVisit.visit_date,
+        status: newVisit.status,
+        sheet_row_id: newVisit.sheet_row_id,
+        visit_uid: newVisit.visit_uid,
+        token: newVisit.token,
+        created_at: newVisit.created_at,
+      });
+    } catch (err) {
+      console.warn('Supabase visit upsert error:', err);
+    }
 
     return {
       ...newVisit,
@@ -517,6 +974,193 @@ export const db = {
     };
   },
 
+  // ── WhatsApp 1-Time Direct Review Flow (Anti-Spam Flag Protection) ─────────
+  async sendWhatsAppReview(params: {
+    hospitalId: string;
+    visitId: string;
+    customTemplate?: string;
+  }): Promise<{
+    success: boolean;
+    skipped?: boolean;
+    reason?: string;
+    messageContent: string;
+    patientName: string;
+    phone: string;
+  }> {
+    const visits = getStore<Visit>('visits', SEED_VISITS);
+    const patients = getStore<Patient>('patients', SEED_PATIENTS);
+    const hospitals = getStore<Hospital>('hospitals', SEED_HOSPITALS);
+
+    const visit = visits.find((v) => v.id === params.visitId);
+    if (!visit) throw new Error('Visit not found');
+
+    const patient = patients.find((p) => p.id === visit.patient_id);
+    if (!patient) throw new Error('Patient not found');
+
+    const hospital = hospitals.find((h) => h.id === params.hospitalId) || {
+      name: 'Hospital',
+    };
+
+    // 1-TIME ANTI-SPAM LOCK:
+    // If the patient was already sent a review previously, DO NOT SEND AGAIN!
+    if (patient.review_sent) {
+      return {
+        success: false,
+        skipped: true,
+        reason: 'Patient has already received a review request previously (1-Time Anti-Spam Protected).',
+        messageContent: patient.last_message_content || '',
+        patientName: patient.name,
+        phone: patient.phone,
+      };
+    }
+
+    // Build the personalized WhatsApp template
+    const template = params.customTemplate || WHATSAPP_REVIEW_TEMPLATE;
+    const personalizedMessage = template
+      .replace(/\[Patient Name\]/gi, patient.name)
+      .replace(/\[Hospital Name\]/gi, hospital.name);
+
+    // Update Patient Flag in database: marked sent so future visits NEVER re-spam
+    patient.review_sent = true;
+    patient.review_sent_at = new Date().toISOString();
+    patient.last_message_content = personalizedMessage;
+    setStore('patients', patients);
+
+    // Update Visit in database
+    visit.status = 'completed';
+    visit.review_requested = true;
+    setStore('visits', visits);
+
+    // Queue / Record Review Request in database
+    const reviewRequests = getStore<ReviewRequest>('review_requests', SEED_REVIEW_REQUESTS);
+    const existingReq = reviewRequests.find((r) => r.visit_id === visit.id);
+    if (existingReq) {
+      existingReq.whatsapp_status = 'sent';
+      existingReq.sent_at = new Date().toISOString();
+      existingReq.message_template = personalizedMessage;
+    } else {
+      reviewRequests.push({
+        id: crypto.randomUUID(),
+        hospital_id: params.hospitalId,
+        visit_id: visit.id,
+        sent_at: new Date().toISOString(),
+        whatsapp_status: 'sent',
+        message_template: personalizedMessage,
+        rating: null,
+        feedback_text: null,
+        review_channel: 'whatsapp',
+        submitted_at: null,
+        created_at: new Date().toISOString(),
+      });
+    }
+    setStore('review_requests', reviewRequests);
+
+    // Try Supabase updates
+    try {
+      await supabase.from('patients').upsert({
+        id: patient.id,
+        hospital_id: patient.hospital_id,
+        name: patient.name,
+        phone: patient.phone,
+        whatsapp_consent: patient.whatsapp_consent,
+      });
+    } catch {}
+
+    return {
+      success: true,
+      skipped: false,
+      messageContent: personalizedMessage,
+      patientName: patient.name,
+      phone: patient.phone,
+    };
+  },
+
+  async sendAllPendingWhatsAppReviews(params: {
+    hospitalId: string;
+    customTemplate?: string;
+  }): Promise<{
+    totalProcessed: number;
+    sentCount: number;
+    skippedCount: number;
+    details: Array<{
+      patientName: string;
+      phone: string;
+      status: 'sent' | 'skipped';
+      reason?: string;
+      message: string;
+    }>;
+  }> {
+    const visits = await this.getVisits(params.hospitalId);
+    const patients = getStore<Patient>('patients', SEED_PATIENTS);
+    const patientMap = new Map(patients.map((p) => [p.id, p]));
+
+    let sentCount = 0;
+    let skippedCount = 0;
+    const details = [];
+    const processedPatientIds = new Set<string>();
+
+    for (const v of visits) {
+      const patient = patientMap.get(v.patient_id);
+      if (!patient) continue;
+
+      // Anti-Spam: Check if already sent in this batch or previously in the database
+      if (processedPatientIds.has(patient.id) || patient.review_sent) {
+        skippedCount++;
+        details.push({
+          patientName: patient.name,
+          phone: patient.phone,
+          status: 'skipped' as const,
+          reason: 'Already received a review previously (1-Time Anti-Spam Protected)',
+          message: patient.last_message_content || '',
+        });
+        continue;
+      }
+
+      processedPatientIds.add(patient.id);
+
+      const res = await this.sendWhatsAppReview({
+        hospitalId: params.hospitalId,
+        visitId: v.id,
+        customTemplate: params.customTemplate,
+      });
+
+      if (res.success && !res.skipped) {
+        sentCount++;
+        details.push({
+          patientName: patient.name,
+          phone: patient.phone,
+          status: 'sent' as const,
+          message: res.messageContent,
+        });
+      } else {
+        skippedCount++;
+        details.push({
+          patientName: patient.name,
+          phone: patient.phone,
+          status: 'skipped' as const,
+          reason: res.reason,
+          message: '',
+        });
+      }
+    }
+
+    return {
+      totalProcessed: visits.length,
+      sentCount,
+      skippedCount,
+      details,
+    };
+  },
+
+  async getReviews(hospitalId?: string): Promise<ReviewRequest[]> {
+    const reviews = getStore<ReviewRequest>(
+      'review_requests',
+      SEED_REVIEW_REQUESTS
+    );
+    if (!hospitalId) return reviews;
+    return reviews.filter((r) => r.hospital_id === hospitalId);
+  },
+
   // ── Public Review Flow ────────────────────────────────────────────────────
   async getVisitByToken(tokenOrId: string): Promise<Visit | null> {
     const visits = getStore<Visit>('visits', SEED_VISITS);
@@ -613,6 +1257,11 @@ export const db = {
   // ── Sheet Connection, Backfill & Delta Sync Engine (Part A & B) ───────────
 
   async getSheetConnection(hospitalId: string): Promise<HospitalSheetConnection | null> {
+    const list = await this.getSheetConnections(hospitalId);
+    return list.find((c) => c.status === 'active') || list[0] || null;
+  },
+
+  async getSheetConnections(hospitalId: string): Promise<HospitalSheetConnection[]> {
     const list = getStore<HospitalSheetConnection>('sheet_connections', [
       {
         id: 'conn-citycare-01',
@@ -635,7 +1284,35 @@ export const db = {
         created_at: new Date(Date.now() - 30 * 86400000).toISOString(),
       },
     ]);
-    return list.find((c) => c.hospital_id === hospitalId) || null;
+    return list.filter((c) => c.hospital_id === hospitalId);
+  },
+
+  async updateVisitRating(visitId: string, rating: number, feedbackText?: string): Promise<void> {
+    const reviewRequests = getStore<ReviewRequest>('review_requests', SEED_REVIEW_REQUESTS);
+    const visits = getStore<Visit>('visits', SEED_VISITS);
+    const visit = visits.find((v) => v.id === visitId);
+
+    const reqIdx = reviewRequests.findIndex((r) => r.visit_id === visitId);
+    if (reqIdx !== -1) {
+      reviewRequests[reqIdx].rating = rating;
+      if (feedbackText) reviewRequests[reqIdx].feedback_text = feedbackText;
+      reviewRequests[reqIdx].submitted_at = new Date().toISOString();
+      reviewRequests[reqIdx].whatsapp_status = 'read';
+    } else if (visit) {
+      reviewRequests.push({
+        id: crypto.randomUUID(),
+        hospital_id: visit.hospital_id,
+        visit_id: visit.id,
+        sent_at: new Date().toISOString(),
+        whatsapp_status: 'read',
+        rating,
+        feedback_text: feedbackText || null,
+        review_channel: 'whatsapp',
+        submitted_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+      });
+    }
+    setStore('review_requests', reviewRequests);
   },
 
   async saveSheetConnection(data: {
@@ -644,16 +1321,25 @@ export const db = {
     sheet_id: string;
     table_name: string;
     column_mapping: ColumnMapping;
+    total_rows_tracked?: number;
+    id?: string;
   }): Promise<HospitalSheetConnection> {
     const list = getStore<HospitalSheetConnection>('sheet_connections', []);
-    const existingIdx = list.findIndex((c) => c.hospital_id === data.hospital_id);
+    const existingIdx = data.id
+      ? list.findIndex((c) => c.id === data.id)
+      : list.findIndex((c) => c.hospital_id === data.hospital_id && c.sheet_id === data.sheet_id);
 
     const connection: HospitalSheetConnection = {
       ...data,
       id: existingIdx !== -1 ? list[existingIdx].id : crypto.randomUUID(),
       status: 'active',
       last_synced_at: new Date().toISOString(),
-      total_rows_tracked: existingIdx !== -1 ? list[existingIdx].total_rows_tracked : 0,
+      total_rows_tracked:
+        data.total_rows_tracked !== undefined
+          ? data.total_rows_tracked
+          : existingIdx !== -1
+          ? list[existingIdx].total_rows_tracked
+          : 0,
       created_at: existingIdx !== -1 ? list[existingIdx].created_at : new Date().toISOString(),
     };
 
@@ -822,8 +1508,8 @@ export const db = {
     let importedCount = 0;
     let rejectedCount = 0;
 
-    const visits = getStore<Visit>('visits', SEED_VISITS);
-    const patients = getStore<Patient>('patients', SEED_PATIENTS);
+    const visits = getStore<Visit>('visits', []);
+    const patients = getStore<Patient>('patients', []);
 
     const existingUidSet = new Set(
       visits.filter((v) => v.hospital_id === hospitalId).map((v) => v.visit_uid).filter(Boolean)
@@ -851,9 +1537,9 @@ export const db = {
         continue;
       }
 
-      if (seenInBatch.has(visit_uid) || existingUidSet.has(visit_uid)) {
+      if (seenInBatch.has(visit_uid)) {
         rejectedCount++;
-        const msg = `Row ${i + 1}: Duplicate visit_uid "${visit_uid}".`;
+        const msg = `Row ${i + 1}: Duplicate visit_uid "${visit_uid}" in batch.`;
         errors.push(msg);
         syncErrors.push({ id: crypto.randomUUID(), sync_run_id: runId, hospital_id: hospitalId, row_reference: visit_uid, reason: msg, created_at: new Date().toISOString() });
         continue;
@@ -870,18 +1556,52 @@ export const db = {
 
       const phoneWithCode = cleanedPhone.startsWith('+') ? cleanedPhone : `+91${cleanedPhone}`;
 
-      // Check or create patient
-      let patient = patients.find((p) => p.hospital_id === hospitalId && p.phone === phoneWithCode);
+      const existingPatientIds = new Set(patients.map((p) => p.id));
+      const readablePatientId = generatePatientId(patient_name, visit_uid, existingPatientIds);
+
+      // Check or create patient strictly for THIS particular hospital
+      let patient = patients.find(
+        (p) => p.hospital_id === hospitalId && (p.phone === phoneWithCode || p.name.toLowerCase() === patient_name.toLowerCase())
+      );
       if (!patient) {
         patient = {
-          id: crypto.randomUUID(),
-          hospital_id: hospitalId,
+          id: readablePatientId,
+          hospital_id: hospitalId, // strictly maintained in this particular hospital
           name: patient_name || 'Patient',
           phone: phoneWithCode,
           whatsapp_consent: true,
           created_at: new Date().toISOString(),
         };
         patients.push(patient);
+      } else {
+        patient.name = patient_name;
+        patient.phone = phoneWithCode;
+      }
+
+      // Upsert directly to Supabase patients table (without dropping any patient!)
+      try {
+        const { error: pErr } = await supabase.from('patients').upsert({
+          id: patient.id,
+          hospital_id: patient.hospital_id,
+          name: patient.name,
+          phone: patient.phone,
+          whatsapp_consent: patient.whatsapp_consent,
+          created_at: patient.created_at || new Date().toISOString(),
+        });
+        if (pErr && pErr.message.includes('type uuid')) {
+          const fallbackUuid = toPatientUuid(patient.id);
+          patient.id = fallbackUuid;
+          await supabase.from('patients').upsert({
+            id: fallbackUuid,
+            hospital_id: patient.hospital_id,
+            name: patient.name,
+            phone: patient.phone,
+            whatsapp_consent: patient.whatsapp_consent,
+            created_at: patient.created_at || new Date().toISOString(),
+          });
+        }
+      } catch (err: any) {
+        console.warn(`Supabase patient upsert error for ${patient.name}:`, err?.message);
       }
 
       const rowHash = this.computeRowHash({
@@ -894,26 +1614,54 @@ export const db = {
         status,
       });
 
-      // Crucial Step 5: Mark historical = true so past patients NEVER get spammed!
+      const vId = toVisitUuid(visit_uid);
+      const isoDate = toIsoDate(visit_date);
+      const supabaseStatus: VisitStatus = status === 'completed' ? 'completed' : 'registered';
+
       const newVisit: Visit = {
-        id: crypto.randomUUID(),
+        id: vId,
         hospital_id: hospitalId,
         patient_id: patient.id,
         department,
         doctor,
-        visit_date,
-        status,
+        visit_date: isoDate,
+        status: supabaseStatus,
         visit_uid,
         sheet_row_id: visit_uid,
         row_hash: rowHash,
-        historical: true,               // Historical flag prevents review dispatch
+        historical: false,
         review_requested: false,
         deleted_at: null,
-        token: `rb-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`,
+        token: `rb-${visit_uid.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`,
         created_at: new Date().toISOString(),
       };
 
-      visits.unshift(newVisit);
+      // Upsert directly to Supabase visits table
+      try {
+        await supabase.from('visits').upsert({
+          id: newVisit.id,
+          hospital_id: newVisit.hospital_id,
+          patient_id: newVisit.patient_id,
+          department: newVisit.department,
+          doctor: newVisit.doctor,
+          visit_date: newVisit.visit_date,
+          status: newVisit.status,
+          sheet_row_id: newVisit.sheet_row_id,
+          visit_uid: newVisit.visit_uid,
+          token: newVisit.token,
+          created_at: newVisit.created_at,
+        });
+      } catch (err: any) {
+        console.warn(`Supabase visit upsert error for ${visit_uid}:`, err?.message);
+      }
+
+      const exIdx = visits.findIndex((v) => v.id === newVisit.id || v.visit_uid === newVisit.visit_uid);
+      if (exIdx !== -1) {
+        visits[exIdx] = newVisit;
+      } else {
+        visits.unshift(newVisit);
+      }
+
       seenInBatch.add(visit_uid);
       existingUidSet.add(visit_uid);
       importedCount++;
@@ -995,8 +1743,8 @@ export const db = {
     let deleted = 0;
     let reviewDispatchedCount = 0;
 
-    const visits = getStore<Visit>('visits', SEED_VISITS);
-    const patients = getStore<Patient>('patients', SEED_PATIENTS);
+    const visits = getStore<Visit>('visits', []);
+    const patients = getStore<Patient>('patients', []);
 
     const sheetUids = new Set<string>();
 
@@ -1034,18 +1782,26 @@ export const db = {
         status,
       });
 
+      const existingPatientIds = new Set(patients.map((p) => p.id));
+      const readablePatientId = generatePatientId(patient_name, visit_uid, existingPatientIds);
+
+      const vId = toVisitUuid(visit_uid);
+      const isoDate = toIsoDate(visit_date);
+      const supabaseStatus: VisitStatus = status === 'completed' ? 'completed' : 'registered';
+
       // Find existing visit by (hospital_id, visit_uid)
       const existingIdx = visits.findIndex(
-        (v) => v.hospital_id === hospitalId && v.visit_uid === visit_uid && !v.deleted_at
+        (v) => v.hospital_id === hospitalId && (v.visit_uid === visit_uid || v.id === vId) && !v.deleted_at
       );
 
       if (existingIdx === -1) {
-        // CASE 1: visit_uid not in database -> INSERT AS NEW VISIT (historical = false)
-        let patient = patients.find((p) => p.hospital_id === hospitalId && p.phone === phoneWithCode);
+        let patient = patients.find(
+          (p) => p.hospital_id === hospitalId && (p.phone === phoneWithCode || p.name.toLowerCase() === patient_name.toLowerCase())
+        );
         if (!patient) {
           patient = {
-            id: crypto.randomUUID(),
-            hospital_id: hospitalId,
+            id: readablePatientId,
+            hospital_id: hospitalId, // strictly maintained in this particular hospital
             name: patient_name || 'Patient',
             phone: phoneWithCode,
             whatsapp_consent: true,
@@ -1054,30 +1810,62 @@ export const db = {
           patients.push(patient);
         }
 
+        try {
+          const { error: pErr } = await supabase.from('patients').upsert({
+            id: patient.id,
+            hospital_id: patient.hospital_id,
+            name: patient.name,
+            phone: patient.phone,
+            whatsapp_consent: patient.whatsapp_consent,
+            created_at: patient.created_at || new Date().toISOString(),
+          });
+          if (pErr && pErr.message.includes('type uuid')) {
+            const fallbackUuid = toPatientUuid(patient.id);
+            patient.id = fallbackUuid;
+            await supabase.from('patients').upsert({
+              id: fallbackUuid,
+              hospital_id: patient.hospital_id,
+              name: patient.name,
+              phone: patient.phone,
+              whatsapp_consent: patient.whatsapp_consent,
+              created_at: patient.created_at || new Date().toISOString(),
+            });
+          }
+        } catch {}
+
         const newVisit: Visit = {
-          id: crypto.randomUUID(),
+          id: vId,
           hospital_id: hospitalId,
           patient_id: patient.id,
           department,
           doctor,
-          visit_date,
-          status,
+          visit_date: isoDate,
+          status: supabaseStatus,
           visit_uid,
           sheet_row_id: visit_uid,
           row_hash: newHash,
-          historical: false,              // NEW VISIT: eligible for review request!
+          historical: false,
           review_requested: false,
           deleted_at: null,
-          token: `rb-${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`,
+          token: `rb-${visit_uid.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`,
           created_at: new Date().toISOString(),
         };
 
-        // Step 9: Trigger review flow if status = completed & patient has consent
-        if (status === 'completed' && patient.whatsapp_consent) {
-          await this.markVisitComplete(newVisit.id);
-          newVisit.review_requested = true;
-          reviewDispatchedCount++;
-        }
+        try {
+          await supabase.from('visits').upsert({
+            id: newVisit.id,
+            hospital_id: newVisit.hospital_id,
+            patient_id: newVisit.patient_id,
+            department: newVisit.department,
+            doctor: newVisit.doctor,
+            visit_date: newVisit.visit_date,
+            status: newVisit.status,
+            sheet_row_id: newVisit.sheet_row_id,
+            visit_uid: newVisit.visit_uid,
+            token: newVisit.token,
+            created_at: newVisit.created_at,
+          });
+        } catch {}
 
         visits.unshift(newVisit);
         added++;
@@ -1085,40 +1873,27 @@ export const db = {
         const existing = visits[existingIdx];
 
         if (existing.row_hash === newHash) {
-          // CASE 2: Hash unchanged -> SKIP
           unchanged++;
         } else {
-          // CASE 3: Hash changed -> UPDATE VISIT
           existing.department = department;
           existing.doctor = doctor;
-          existing.visit_date = visit_date;
-          existing.status = status;
+          existing.visit_date = isoDate;
+          existing.status = supabaseStatus;
           existing.row_hash = newHash;
 
-          // If status became completed and was not previously requested
-          if (status === 'completed' && !existing.review_requested && !existing.historical) {
-            await this.markVisitComplete(existing.id);
-            existing.review_requested = true;
-            reviewDispatchedCount++;
-          }
+          try {
+            await supabase.from('visits').update({
+              department,
+              doctor,
+              visit_date: isoDate,
+              status: supabaseStatus,
+            }).eq('id', existing.id);
+          } catch {}
 
           updated++;
         }
       }
     }
-
-    // CASE 4: visit_uid in DB but missing from sheet -> SOFT DELETE
-    visits.forEach((v) => {
-      if (
-        v.hospital_id === hospitalId &&
-        v.visit_uid &&
-        !sheetUids.has(v.visit_uid) &&
-        !v.deleted_at
-      ) {
-        v.deleted_at = new Date().toISOString();
-        deleted++;
-      }
-    });
 
     setStore('patients', patients);
     setStore('visits', visits);
@@ -1138,15 +1913,6 @@ export const db = {
     const allRuns = getStore<SyncRun>('sync_runs', []);
     setStore('sync_runs', [syncRun, ...allRuns]);
 
-    // Update connection timestamp
-    const connList = getStore<HospitalSheetConnection>('sheet_connections', []);
-    const cIdx = connList.findIndex((c) => c.hospital_id === hospitalId);
-    if (cIdx !== -1) {
-      connList[cIdx].last_synced_at = new Date().toISOString();
-      connList[cIdx].total_rows_tracked = rawRows.length;
-      setStore('sheet_connections', connList);
-    }
-
     return {
       syncRun,
       added,
@@ -1156,6 +1922,69 @@ export const db = {
       reviewDispatchedCount,
       errors,
     };
+  },
+
+  async syncAllLocalRowsToSupabase(
+    hospitalId: string,
+    rawRows?: Record<string, any>[]
+  ): Promise<{ syncedCount: number; errors: string[] }> {
+    if (rawRows && rawRows.length > 0) {
+      const res = await this.runInitialBackfill(hospitalId, rawRows, {
+        visit_uid: 'visit_uid',
+        patient_name: 'patient_name',
+        phone: 'phone',
+        visit_date: 'visit_date',
+        department: 'department',
+        doctor: 'doctor',
+        status: 'status',
+      });
+      return { syncedCount: res.importedCount, errors: res.errors };
+    }
+
+    const visits = getStore<Visit>('visits', []).filter((v) => v.hospital_id === hospitalId && !isDummyOrCorrupted(v.doctor, v.id));
+    const patients = getStore<Patient>('patients', []).filter((p) => p.hospital_id === hospitalId && !isDummyOrCorrupted(p.name, p.id));
+    const errors: string[] = [];
+    let syncedCount = 0;
+
+    for (const p of patients) {
+      try {
+        await supabase.from('patients').upsert({
+          id: p.id,
+          hospital_id: p.hospital_id,
+          name: p.name,
+          phone: p.phone,
+          whatsapp_consent: p.whatsapp_consent ?? true,
+          created_at: p.created_at || new Date().toISOString(),
+        });
+      } catch (err: any) {
+        errors.push(`Patient ${p.name}: ${err?.message}`);
+      }
+    }
+
+    for (const v of visits) {
+      try {
+        const isoDate = toIsoDate(v.visit_date);
+        const supabaseStatus = v.status === 'completed' ? 'completed' : 'registered';
+        await supabase.from('visits').upsert({
+          id: v.id,
+          hospital_id: v.hospital_id,
+          patient_id: v.patient_id,
+          department: v.department,
+          doctor: v.doctor,
+          visit_date: isoDate,
+          status: supabaseStatus,
+          sheet_row_id: v.sheet_row_id || v.visit_uid,
+          visit_uid: v.visit_uid,
+          token: v.token,
+          created_at: v.created_at || new Date().toISOString(),
+        });
+        syncedCount++;
+      } catch (err: any) {
+        errors.push(`Visit ${v.visit_uid}: ${err?.message}`);
+      }
+    }
+
+    return { syncedCount, errors };
   },
 
   async getSyncRuns(hospitalId: string): Promise<SyncRun[]> {

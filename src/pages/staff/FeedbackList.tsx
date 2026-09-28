@@ -9,6 +9,7 @@ import { ReviewStatusBadge, FollowUpBadge } from '../../components/ui/StatusIndi
 import { PageSpinner } from '../../components/ui/Spinner';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { Badge } from '../../components/ui/Badge';
+import { useAuth } from '../../context/AuthContext';
 import { getFeedback } from '../../services/feedbackService';
 import type { Feedback } from '../../types/feedback';
 import { formatDate } from '../../utils/formatters';
@@ -34,6 +35,7 @@ const statusOptions = [
 export default function FeedbackList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { currentHospital } = useAuth();
 
   const [search, setSearch] = useState('');
   const [rating, setRating] = useState('all');
@@ -44,13 +46,14 @@ export default function FeedbackList() {
   const load = useCallback(() => {
     setLoading(true);
     getFeedback({
+      hospitalId: currentHospital?.id,
       search: search || undefined,
       rating: rating !== 'all' ? parseInt(rating, 10) : null,
       status: status !== 'all' ? status : undefined,
     })
       .then(setFeedbackList)
       .finally(() => setLoading(false));
-  }, [search, rating, status]);
+  }, [currentHospital?.id, search, rating, status]);
 
   useEffect(() => {
     const t = setTimeout(load, 300);
@@ -60,8 +63,8 @@ export default function FeedbackList() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Feedback</h1>
-        <p className="text-sm text-slate-500 mt-0.5">All patient feedback submissions.</p>
+        <h1 className="text-xl font-bold text-slate-900">Reviews & Patient Feedback</h1>
+        <p className="text-sm text-slate-500 mt-0.5">Genuine patient feedback and star ratings submitted for this clinic.</p>
       </div>
 
       {/* Filters */}
@@ -99,22 +102,21 @@ export default function FeedbackList() {
           <PageSpinner message="Loading feedback…" />
         ) : feedbackList.length === 0 ? (
           <EmptyState
-            icon={<MessageSquare className="h-10 w-10" />}
-            title="No feedback found"
-            description="Try adjusting your filters or check back after patients submit feedback."
+            icon={<MessageSquare className="h-10 w-10 text-emerald-500" />}
+            title="No Patient Reviews Yet"
+            description="Reviews submitted by patients via WhatsApp or the review link will automatically appear here."
           />
         ) : (
           <>
             {/* Desktop header */}
             <div
               className="hidden lg:grid gap-4 px-5 py-3 border-b border-slate-100 bg-slate-50 text-xs font-semibold text-slate-500 uppercase tracking-wide rounded-t-xl"
-              style={{ gridTemplateColumns: '2fr 1fr 1fr 2fr 1fr 1fr 1fr auto' }}
+              style={{ gridTemplateColumns: '2.5fr 1.2fr 1fr 2.5fr 1.2fr 1.2fr auto' }}
             >
               <span>Patient</span>
               <span>Visit Date</span>
               <span>Rating</span>
               <span>Feedback</span>
-              <span>Channel</span>
               <span>Review Status</span>
               <span>Follow-up</span>
               <span />
@@ -126,15 +128,15 @@ export default function FeedbackList() {
                   {/* Desktop row */}
                   <div
                     className="hidden lg:grid gap-4 items-center px-5 py-3.5 hover:bg-slate-50 transition-colors"
-                    style={{ gridTemplateColumns: '2fr 1fr 1fr 2fr 1fr 1fr 1fr auto' }}
+                    style={{ gridTemplateColumns: '2.5fr 1.2fr 1fr 2.5fr 1.2fr 1.2fr auto' }}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-sm font-semibold shrink-0">
                         {fb.patientName.charAt(0)}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-slate-900 truncate">{fb.patientName}</p>
-                        <p className="text-xs text-slate-400 truncate">{fb.maskedPhone}</p>
+                        <p className="text-sm font-semibold text-slate-900 truncate">{fb.patientName}</p>
+                        <p className="text-xs text-slate-500 font-mono truncate">{fb.phone || fb.maskedPhone}</p>
                       </div>
                     </div>
 
@@ -142,13 +144,9 @@ export default function FeedbackList() {
 
                     <StarRating value={fb.rating} readonly size="sm" />
 
-                    <p className="text-sm text-slate-500 truncate italic">
+                    <p className="text-sm text-slate-600 truncate italic">
                       {fb.originalFeedback ?? 'No text feedback'}
                     </p>
-
-                    <Badge variant={fb.channel === 'whatsapp' ? 'info' : 'neutral'}>
-                      {fb.channel === 'whatsapp' ? 'WhatsApp' : 'Web'}
-                    </Badge>
 
                     <ReviewStatusBadge status={fb.reviewStatus} />
 
@@ -169,15 +167,18 @@ export default function FeedbackList() {
                     onClick={() => navigate(`/staff/feedback/${fb.id}`)}
                     aria-label={`View feedback from ${fb.patientName}`}
                   >
-                    <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-semibold shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-sm font-semibold shrink-0">
                       {fb.patientName.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-900">{fb.patientName}</p>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{fb.patientName}</p>
+                          <p className="text-xs text-slate-500 font-mono">{fb.phone || fb.maskedPhone}</p>
+                        </div>
                         <StarRating value={fb.rating} readonly size="sm" />
                       </div>
-                      <p className="text-xs text-slate-500 mt-0.5 truncate">
+                      <p className="text-xs text-slate-500 mt-1 truncate">
                         {fb.originalFeedback ?? 'No text feedback provided.'}
                       </p>
                       <div className="flex flex-wrap gap-1.5 mt-2">

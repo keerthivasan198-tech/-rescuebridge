@@ -12,7 +12,7 @@ interface AuthContextType {
   isHospitalAdmin: boolean;
   isStaff: boolean;
   isAuthenticated: boolean;
-  login: (email: string) => Promise<boolean>;
+  login: (email: string, password?: string) => Promise<boolean>;
   logout: () => void;
   switchHospital: (hospitalId: string | 'all') => Promise<void>;
   switchUserRole: (role: UserRole, targetHospitalId?: string) => Promise<void>;
@@ -87,19 +87,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (email: string): Promise<boolean> => {
+  const login = async (email: string, password?: string): Promise<boolean> => {
     const users = await db.getUsers();
-    const user = users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim());
+    const cleanEmail = email.toLowerCase().trim();
+    const user = users.find((u) => u.email.toLowerCase().trim() === cleanEmail);
     if (user) {
+      if (password && user.password_hash) {
+        const storedHash = user.password_hash;
+        const matchesPlain = storedHash === password;
+        const matchesDemo =
+          storedHash.startsWith('$2a$10$DEMO_HASH_') &&
+          ((storedHash.includes('SUPER_ADMIN') && (password === 'admin123' || password === 'superadmin123')) ||
+           (storedHash.includes('STAFF') && (password === 'staff123' || password === 'admin123')) ||
+           password === 'admin123' || password === 'hospital123');
+
+        if (!matchesPlain && !matchesDemo) {
+          return false;
+        }
+      }
       setCurrentUser(user);
       localStorage.setItem('rb_active_user', JSON.stringify(user));
+      const hospitals = await db.getHospitals();
+      setAllHospitalsList(hospitals);
+
       if (user.role === 'super_admin') {
         setSelectedHospitalId('all');
         localStorage.setItem('rb_selected_hospital_id', 'all');
       } else if (user.hospital_id) {
         setSelectedHospitalId(user.hospital_id);
         localStorage.setItem('rb_selected_hospital_id', user.hospital_id);
-        const h = allHospitalsList.find((item) => item.id === user.hospital_id) || null;
+        const h = hospitals.find((item) => item.id === user.hospital_id) || null;
         setCurrentHospital(h);
       }
       return true;

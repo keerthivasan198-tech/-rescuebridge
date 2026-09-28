@@ -171,7 +171,7 @@ export default function FeedbackDetail() {
               {[
                 { icon: <Hash className="h-4 w-4 text-slate-400" />, label: 'Visit ID', value: fb.visitId },
                 { icon: <Calendar className="h-4 w-4 text-slate-400" />, label: 'Visit Date', value: formatDate(fb.visitDate) },
-                { icon: <Phone className="h-4 w-4 text-slate-400" />, label: 'Phone', value: fb.maskedPhone },
+                { icon: <Phone className="h-4 w-4 text-slate-400" />, label: 'Phone', value: fb.phone || fb.maskedPhone },
                 {
                   icon: <MessageSquare className="h-4 w-4 text-slate-400" />,
                   label: 'Channel',

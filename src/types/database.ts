@@ -11,8 +11,11 @@ export interface Hospital {
   google_place_id: string;
   sheet_id: string;
   sheet_type: SheetType;
-  logo: string;
+  logo?: string;
   website?: string;
+  phone?: string;
+  admin_email?: string;
+  google_review_url?: string;
   whatsapp_template_name: string;
   created_at?: string;
   // Computed / UI stats
@@ -40,10 +43,13 @@ export interface Patient {
   name: string;
   phone: string;
   whatsapp_consent: boolean;
+  review_sent?: boolean;          // One-time review flag: patient cannot be spammed again
+  review_sent_at?: string | null; // Timestamp when review message was sent
+  last_message_content?: string;  // WhatsApp template content sent to this patient
   created_at?: string;
 }
 
-export type VisitStatus = 'registered' | 'in_consultation' | 'completed' | 'cancelled';
+export type VisitStatus = 'registered' | 'in_consultation' | 'completed' | 'cancelled' | 'pending';
 
 export interface Visit {
   id: string;
@@ -76,6 +82,7 @@ export interface ReviewRequest {
   visit_id: string;
   sent_at: string | null;
   whatsapp_status: WhatsAppStatus;
+  message_template?: string;
   rating: number | null; // 1 to 5
   feedback_text: string | null;
   review_channel: ReviewChannel;
