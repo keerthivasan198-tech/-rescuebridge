@@ -1317,7 +1317,7 @@ export const db = {
 
   async saveSheetConnection(data: {
     hospital_id: string;
-    sheet_type: 'google_sheets' | 'excel_365' | 'onedrive';
+    sheet_type: 'google_sheets' | 'excel_365' | 'onedrive' | 'google_forms';
     sheet_id: string;
     table_name: string;
     column_mapping: ColumnMapping;
@@ -1355,6 +1355,122 @@ export const db = {
     } catch {}
 
     return connection;
+  },
+
+  async ingestGoogleFormResponse(data: {
+    hospital_id: string;
+    patient_name: string;
+    phone: string;
+    doctor: string;
+    visit_date: string;
+    department?: string;
+  }): Promise<{ patient: Patient; visit: Visit }> {
+    const hospitalId = data.hospital_id;
+    const cleanName = data.patient_name.trim();
+    let rawPhone = data.phone.trim().replace(/\s+/g, '');
+    const phone = rawPhone.startsWith('+') ? rawPhone : `+91${rawPhone}`;
+    const doctor = data.doctor.trim() || 'Dr. Ramesh Kumar';
+    const department = data.department?.trim() || 'General Consultation';
+    const visitDate = toIsoDate(data.visit_date);
+
+    const visitUid = `GF-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const patients = getStore<Patient>('patients', []);
+    let patient = patients.find(
+      (p) => p.hospital_id === hospitalId && (p.phone === phone || p.name.toLowerCase() === cleanName.toLowerCase())
+    );
+
+    const existingPatientIds = new Set(patients.map((p) => p.id));
+    const readablePatientId = generatePatientId(cleanName, visitUid, existingPatientIds);
+
+    if (!patient) {
+      patient = {
+        id: readablePatientId,
+        hospital_id: hospitalId,
+        name: cleanName,
+        phone,
+        whatsapp_consent: true,
+        created_at: new Date().toISOString(),
+      };
+      setStore('patients', [patient, ...patients.filter((p) => p.id !== readablePatientId)]);
+      try {
+        const { error } = await supabase.from('patients').upsert({
+          id: patient.id,
+          hospital_id: patient.hospital_id,
+          name: patient.name,
+          phone: patient.phone,
+          whatsapp_consent: patient.whatsapp_consent,
+          created_at: patient.created_at,
+        });
+        if (error && error.message.includes('type uuid')) {
+          const fallbackUuid = toPatientUuid(patient.id);
+          patient.id = fallbackUuid;
+          await supabase.from('patients').upsert({
+            id: fallbackUuid,
+            hospital_id: patient.hospital_id,
+            name: patient.name,
+            phone: patient.phone,
+            whatsapp_consent: patient.whatsapp_consent,
+            created_at: patient.created_at,
+          });
+        }
+      } catch (err) {
+        console.warn('Supabase patient upsert error:', err);
+      }
+    } else {
+      patient.name = cleanName;
+      patient.phone = phone;
+    }
+
+    const visitId = toVisitUuid(visitUid);
+    const token = `rb-gf-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`;
+    const newVisit: Visit = {
+      id: visitId,
+      hospital_id: hospitalId,
+      patient_id: patient.id,
+      department,
+      doctor,
+      visit_date: visitDate,
+      status: 'pending',
+      sheet_row_id: visitUid,
+      visit_uid: visitUid,
+      token,
+      created_at: new Date().toISOString(),
+    };
+
+    const visits = getStore<Visit>('visits', []);
+    setStore('visits', [newVisit, ...visits.filter((v) => v.id !== visitId && v.visit_uid !== visitUid)]);
+
+    try {
+      await supabase.from('visits').upsert({
+        id: newVisit.id,
+        hospital_id: newVisit.hospital_id,
+        patient_id: newVisit.patient_id,
+        department: newVisit.department,
+        doctor: newVisit.doctor,
+        visit_date: newVisit.visit_date,
+        status: 'registered',
+        sheet_row_id: newVisit.sheet_row_id,
+        visit_uid: newVisit.visit_uid,
+        token: newVisit.token,
+        created_at: newVisit.created_at,
+      });
+    } catch (err) {
+      console.warn('Supabase visit upsert error:', err);
+    }
+
+    const conns = getStore<HospitalSheetConnection>('sheet_connections', []);
+    const gfConn = conns.find((c) => c.hospital_id === hospitalId && c.sheet_type === 'google_forms');
+    if (gfConn) {
+      gfConn.total_rows_tracked = (gfConn.total_rows_tracked || 0) + 1;
+      gfConn.last_synced_at = new Date().toISOString();
+      setStore('sheet_connections', conns);
+      try {
+        await supabase.from('hospital_sheet_connections').upsert(gfConn);
+      } catch {}
+    }
+
+    return { patient, visit: newVisit };
   },
 
   async disconnectSheet(hospitalId: string): Promise<void> {

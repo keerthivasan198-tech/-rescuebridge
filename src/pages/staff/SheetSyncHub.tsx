@@ -28,6 +28,8 @@ import {
   MessageSquare,
   ShieldCheck,
   Star,
+  FileText,
+  FormInput,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
@@ -38,6 +40,13 @@ import {
   SyncRun,
   Visit,
 } from '../../types/database';
+import {
+  parseGoogleFormUrl,
+  generateAppsScriptSnippet,
+  submitToGoogleFormPublic,
+  DEFAULT_RESCUEBRIDGE_FORM_URL,
+  RESCUEBRIDGE_FORM_FIELDS,
+} from '../../services/googleFormsService';
 
 export default function SheetSyncHub() {
   const { currentHospital } = useAuth();
@@ -53,7 +62,7 @@ export default function SheetSyncHub() {
   const [newSheetTitle, setNewSheetTitle] = useState('');
 
   // Connection Form State
-  const [sheetType, setSheetType] = useState<'google_sheets' | 'excel_365'>('google_sheets');
+  const [sheetType, setSheetType] = useState<'google_sheets' | 'excel_365' | 'google_forms'>('google_sheets');
   const [sheetUrl, setSheetUrl] = useState(
     'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit'
   );
@@ -61,6 +70,19 @@ export default function SheetSyncHub() {
   const [uploadedRows, setUploadedRows] = useState<any[]>([]);
   const [showAdvancedMapping, setShowAdvancedMapping] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedScript, setCopiedScript] = useState(false);
+  const [showAppsScriptModal, setShowAppsScriptModal] = useState(false);
+
+  // Google Form Ingestion State
+  const [showGoogleFormModal, setShowGoogleFormModal] = useState(false);
+  const [googleFormSubmission, setGoogleFormSubmission] = useState({
+    patient_name: '',
+    phone: '',
+    doctor: 'Dr. Ramesh Kumar',
+    visit_date: new Date().toISOString().split('T')[0],
+    department: 'General Consultation',
+  });
+  const [submittingFormResponse, setSubmittingFormResponse] = useState(false);
 
   // Column Mapping (auto-matched by default)
   const [mapping, setMapping] = useState<ColumnMapping>({
@@ -212,10 +234,18 @@ export default function SheetSyncHub() {
       setConnection(conn);
       if (conn && conn.status === 'active') {
         setIsEditing(false);
-        setSheetType(conn.sheet_type === 'excel_365' ? 'excel_365' : 'google_sheets');
+        setSheetType(
+          conn.sheet_type === 'excel_365'
+            ? 'excel_365'
+            : conn.sheet_type === 'google_forms'
+            ? 'google_forms'
+            : 'google_sheets'
+        );
         setSheetUrl(
           conn.sheet_id.startsWith('http')
             ? conn.sheet_id
+            : conn.sheet_type === 'google_forms'
+            ? `https://docs.google.com/forms/d/e/${conn.sheet_id}/viewform`
             : `https://docs.google.com/spreadsheets/d/${conn.sheet_id}/edit`
         );
         setMapping(conn.column_mapping);
@@ -238,6 +268,48 @@ export default function SheetSyncHub() {
 
   useEffect(() => {
     loadData();
+  }, [hospitalId]);
+
+  // Real-time background poller for Google Form webhook responses
+  useEffect(() => {
+    const poller = setInterval(async () => {
+      try {
+        const resp = await fetch('/api/google-form-responses');
+        if (resp.ok) {
+          const { queue } = await resp.json();
+          if (Array.isArray(queue) && queue.length > 0) {
+            const processedIds: string[] = [];
+            for (const item of queue) {
+              if (item.patient_name) {
+                await db.ingestGoogleFormResponse({
+                  hospital_id: item.hospital_id || hospitalId,
+                  patient_name: item.patient_name,
+                  phone: item.phone || '+919876543210',
+                  doctor: item.doctor || 'Dr. Ramesh Kumar',
+                  visit_date: item.visit_date || new Date().toISOString().split('T')[0],
+                  department: item.department || 'General Consultation',
+                });
+                processedIds.push(item.id);
+              }
+            }
+            if (processedIds.length > 0) {
+              await fetch('/api/google-form-responses/clear', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: processedIds }),
+              });
+              await loadData();
+              setSaveSuccessMessage(
+                `⚡ Synced ${processedIds.length} new patient response(s) from Google Form into the database & live UI!`
+              );
+              setTimeout(() => setSaveSuccessMessage(null), 5000);
+            }
+          }
+        }
+      } catch {}
+    }, 4000);
+
+    return () => clearInterval(poller);
   }, [hospitalId]);
 
   // Purge Corrupted Junk Rows
@@ -380,6 +452,39 @@ export default function SheetSyncHub() {
 
     setSyncing(true);
     try {
+      if (sheetType === 'google_forms') {
+        const formUrl = sheetUrl.trim() || DEFAULT_RESCUEBRIDGE_FORM_URL;
+        const formInfo = parseGoogleFormUrl(formUrl);
+        const finalFormId = formInfo.formId || formUrl;
+        const finalTitle = newSheetTitle || 'RESCUEBRIDGE FORM';
+
+        await db.saveSheetConnection({
+          hospital_id: hospitalId,
+          sheet_type: 'google_forms',
+          sheet_id: finalFormId,
+          table_name: finalTitle,
+          column_mapping: {
+            visit_uid: 'Form Submission ID',
+            patient_name: 'PATIENT NAME',
+            phone: 'PHONE NUMBER:',
+            visit_date: 'APPOINTEMENT DATE',
+            department: 'ISSUE DETAIL',
+            doctor: 'DOCTOR NAME',
+            status: 'status',
+          },
+        });
+
+        setNewSheetTitle('');
+        await loadData();
+        setSaveSuccessMessage(
+          `Google Form "${finalTitle}" connected! All patient responses are saved directly into the database and shown live in the UI.`
+        );
+        setTimeout(() => setSaveSuccessMessage(null), 5000);
+        setIsEditing(false);
+        setSyncing(false);
+        return;
+      }
+
       let sheetId = sheetUrl.trim() || uploadedFileName || 'Hospital_Spreadsheet_Source';
       const googleMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
       if (googleMatch && googleMatch[1]) {
@@ -447,6 +552,55 @@ export default function SheetSyncHub() {
       alert(`Connection failed: ${err.message || 'Please verify sheet permissions'}`);
     } finally {
       setSyncing(false);
+    }
+  };
+
+  // Ingest Google Form Response (saves to Supabase database & live UI)
+  const handleIngestGoogleForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!googleFormSubmission.patient_name.trim() || !googleFormSubmission.phone.trim()) {
+      alert('Please provide patient name and phone number');
+      return;
+    }
+
+    setSubmittingFormResponse(true);
+    try {
+      // 1. Ingest into database (Supabase + localStorage)
+      const res = await db.ingestGoogleFormResponse({
+        hospital_id: hospitalId,
+        patient_name: googleFormSubmission.patient_name.trim(),
+        phone: googleFormSubmission.phone.trim(),
+        doctor: googleFormSubmission.doctor.trim(),
+        visit_date: googleFormSubmission.visit_date,
+        department: googleFormSubmission.department?.trim() || 'General Consultation',
+      });
+
+      // 2. Submit to the real Google Form in background (non-blocking)
+      const formInfo = parseGoogleFormUrl(sheetUrl);
+      if (formInfo.formId) {
+        submitToGoogleFormPublic(formInfo.formId, googleFormSubmission).catch(() => {});
+      }
+
+      // 3. Immediately refresh UI
+      await loadData();
+
+      setShowGoogleFormModal(false);
+      setGoogleFormSubmission({
+        patient_name: '',
+        phone: '',
+        doctor: 'Dr. Ramesh Kumar',
+        visit_date: new Date().toISOString().split('T')[0],
+        department: 'General Consultation',
+      });
+
+      setSaveSuccessMessage(
+        `Google Form response for "${res.patient.name}" (${res.patient.phone}) saved to database and live in consultations!`
+      );
+      setTimeout(() => setSaveSuccessMessage(null), 6000);
+    } catch (err: any) {
+      alert(`Failed to save Google Form response: ${err.message}`);
+    } finally {
+      setSubmittingFormResponse(false);
     }
   };
 
@@ -626,17 +780,43 @@ export default function SheetSyncHub() {
           <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-6 space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-5 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold shadow-xs">
-                  <Check className="w-5 h-5" />
+                <div
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold shadow-xs ${
+                    connection.sheet_type === 'google_forms'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-emerald-500 text-white'
+                  }`}
+                >
+                  {connection.sheet_type === 'google_forms' ? (
+                    <FormInput className="w-5 h-5" />
+                  ) : (
+                    <Check className="w-5 h-5" />
+                  )}
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
                     <h2 className="text-base font-bold text-slate-900">
-                      {connection.sheet_type === 'excel_365' ? 'Microsoft Excel Spreadsheet' : 'Google Sheets'}
+                      {connection.sheet_type === 'google_forms'
+                        ? (connection.table_name || 'RESCUEBRIDGE FORM')
+                        : connection.sheet_type === 'excel_365'
+                        ? 'Microsoft Excel Spreadsheet'
+                        : 'Google Sheets'}
                     </h2>
-                    <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Connected & Live Syncing
+                    <span
+                      className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                        connection.sheet_type === 'google_forms'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                          connection.sheet_type === 'google_forms' ? 'bg-purple-500' : 'bg-emerald-500'
+                        }`}
+                      />
+                      {connection.sheet_type === 'google_forms'
+                        ? 'Google Forms Live Sync'
+                        : 'Connected & Live Syncing'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5 truncate max-w-md">
@@ -647,12 +827,58 @@ export default function SheetSyncHub() {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap items-center gap-2">
+                {connection.sheet_type === 'google_forms' && (
+                  <>
+                    <button
+                      onClick={() => {
+                        setGoogleFormSubmission({
+                          patient_name: '',
+                          phone: '',
+                          doctor: 'Dr. Ramesh Kumar',
+                          visit_date: new Date().toISOString().split('T')[0],
+                          department: 'General Consultation',
+                        });
+                        setShowGoogleFormModal(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all"
+                      title="Ingest new patient response from Google Form into database"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>+ Ingest Form Response</span>
+                    </button>
+
+                    <a
+                      href={
+                        sheetUrl.startsWith('http')
+                          ? sheetUrl
+                          : `https://docs.google.com/forms/d/e/${sheetUrl}/viewform`
+                      }
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl transition-all shadow-xs"
+                      title="Open Google Form in a new tab"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Open Form</span>
+                    </a>
+
+                    <button
+                      onClick={() => setShowAppsScriptModal(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                      title="View Google Apps Script snippet for real-time form submission webhook"
+                    >
+                      <Zap className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Webhook Code</span>
+                    </button>
+                  </>
+                )}
+
                 <button
                   onClick={() => setShowNewEntryModal(true)}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Add New Consultation Entry</span>
+                  <span>+ Add New Row</span>
                 </button>
 
                 <button
@@ -961,32 +1187,69 @@ export default function SheetSyncHub() {
             </p>
           </div>
 
-          {/* 2 Big Option Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* 3 Option Cards: Google Sheets, Google Forms, Microsoft Excel */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {/* Google Sheets Option */}
             <button
               type="button"
-              onClick={() => setSheetType('google_sheets')}
-              className={`p-5 rounded-2xl border text-left transition-all flex items-start gap-4 ${
+              onClick={() => {
+                setSheetType('google_sheets');
+                if (sheetUrl.includes('docs.google.com/forms')) {
+                  setSheetUrl('https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit');
+                }
+              }}
+              className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
                 sheetType === 'google_sheets'
                   ? 'border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/20'
                   : 'border-slate-200 hover:border-slate-300 bg-white'
               }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-                <FileSpreadsheet className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                <FileSpreadsheet className="w-5 h-5" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center justify-between">
-                  <p className="font-bold text-sm text-slate-900">Google Sheets</p>
+                  <p className="font-bold text-xs text-slate-900">Google Sheets</p>
                   {sheetType === 'google_sheets' && (
-                    <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                    <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px]">
                       ✓
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Connect live Google Sheet link. New entries automatically sync to the database.
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Live spreadsheet link with auto-sync.
+                </p>
+              </div>
+            </button>
+
+            {/* Google Forms Option */}
+            <button
+              type="button"
+              onClick={() => {
+                setSheetType('google_forms');
+                setSheetUrl(DEFAULT_RESCUEBRIDGE_FORM_URL);
+                if (!newSheetTitle) setNewSheetTitle('RESCUEBRIDGE FORM');
+              }}
+              className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
+                sheetType === 'google_forms'
+                  ? 'border-purple-600 bg-purple-50/50 ring-2 ring-purple-500/20'
+                  : 'border-slate-200 hover:border-slate-300 bg-white'
+              }`}
+            >
+              <div className="w-10 h-10 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                <FormInput className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center justify-between">
+                  <p className="font-bold text-xs text-purple-950">Google Forms</p>
+                  {sheetType === 'google_forms' && (
+                    <span className="w-3.5 h-3.5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[9px]">
+                      ✓
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Auto-save patient form responses to DB & UI.
                 </p>
               </div>
             </button>
@@ -995,32 +1258,112 @@ export default function SheetSyncHub() {
             <button
               type="button"
               onClick={() => setSheetType('excel_365')}
-              className={`p-5 rounded-2xl border text-left transition-all flex items-start gap-4 ${
+              className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
                 sheetType === 'excel_365'
                   ? 'border-emerald-600 bg-emerald-50/40 ring-2 ring-emerald-500/20'
                   : 'border-slate-200 hover:border-slate-300 bg-white'
               }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
-                <FileCheck className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-700 flex items-center justify-center shrink-0">
+                <FileCheck className="w-5 h-5" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center justify-between">
-                  <p className="font-bold text-sm text-slate-900">Microsoft Excel / CSV</p>
+                  <p className="font-bold text-xs text-slate-900">Excel / CSV File</p>
                   {sheetType === 'excel_365' && (
-                    <span className="w-4 h-4 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
+                    <span className="w-3.5 h-3.5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[9px]">
                       ✓
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                  Upload an Excel (.xlsx, .xls) or CSV spreadsheet file.
+                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                  Upload .xlsx or .csv patient export.
                 </p>
               </div>
             </button>
           </div>
 
           <form onSubmit={handleConnectSheet} className="space-y-5 pt-2">
+            {/* If Google Forms */}
+            {sheetType === 'google_forms' && (
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Google Form URL *
+                    </label>
+                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                      RESCUEBRIDGE FORM Connected
+                    </span>
+                  </div>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://docs.google.com/forms/d/e/.../viewform"
+                    value={sheetUrl}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSheetUrl(val);
+                      if (val.includes('docs.google.com/forms')) {
+                        setSheetType('google_forms');
+                      }
+                    }}
+                    className="w-full text-xs rounded-xl border border-slate-300 p-3 focus:ring-2 focus:ring-purple-500 focus:outline-none transition-all font-mono"
+                  />
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Paste your Google Form link. When patients fill and submit the form, their details will be saved to the database and displayed here live.
+                  </p>
+                </div>
+
+                {/* Form fields overview */}
+                <div className="bg-purple-50/50 border border-purple-200/80 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                      Google Form Fields & Database Mapping
+                    </p>
+                    <span className="text-[10px] font-mono font-bold text-purple-700 bg-white px-2 py-0.5 rounded-lg border border-purple-200">
+                      5 Fields Auto-Mapped
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    {RESCUEBRIDGE_FORM_FIELDS.map((f) => (
+                      <div
+                        key={f.name}
+                        className="flex items-center justify-between bg-white border border-purple-100 p-2.5 rounded-xl shadow-2xs"
+                      >
+                        <span className="font-bold text-slate-800 font-mono text-[11px]">
+                          {f.label}
+                        </span>
+                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
+                          → {f.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <a
+                      href={sheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold text-purple-700 hover:text-purple-800 hover:underline inline-flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Open Form in New Tab</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setShowAppsScriptModal(true)}
+                      className="text-[11px] font-bold text-slate-600 hover:text-slate-900 hover:underline inline-flex items-center gap-1"
+                    >
+                      <Zap className="w-3 h-3 text-amber-500" />
+                      <span>Setup Webhook Trigger (Apps Script)</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* If Google Sheets: Input Link or Upload downloaded Google Sheet */}
             {sheetType === 'google_sheets' && (
               <div className="space-y-4">
@@ -1033,7 +1376,14 @@ export default function SheetSyncHub() {
                     required={uploadedRows.length === 0}
                     placeholder="https://docs.google.com/spreadsheets/d/your-sheet-id/edit"
                     value={sheetUrl}
-                    onChange={(e) => setSheetUrl(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSheetUrl(val);
+                      if (val.includes('docs.google.com/forms')) {
+                        setSheetType('google_forms');
+                        if (!newSheetTitle) setNewSheetTitle('RESCUEBRIDGE FORM');
+                      }
+                    }}
                     className="w-full text-xs rounded-xl border border-slate-300 p-3 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all font-mono"
                   />
                   <p className="text-[10px] text-slate-400 mt-1">
@@ -1290,12 +1640,17 @@ export default function SheetSyncHub() {
                 />
               </div>
 
-              {/* Platform Choice */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Platform Choice: 3 Options */}
+              <div className="grid grid-cols-3 gap-2.5">
                 <button
                   type="button"
-                  onClick={() => setSheetType('google_sheets')}
-                  className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                  onClick={() => {
+                    setSheetType('google_sheets');
+                    if (sheetUrl.includes('docs.google.com/forms')) {
+                      setSheetUrl('https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit');
+                    }
+                  }}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
                     sheetType === 'google_sheets'
                       ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-500/20'
                       : 'border-slate-200 bg-white hover:bg-slate-50'
@@ -1303,15 +1658,35 @@ export default function SheetSyncHub() {
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                   <div>
-                    <p className="text-xs font-bold text-slate-900">Google Sheets</p>
-                    <p className="text-[10px] text-slate-400">Paste sheet URL</p>
+                    <p className="text-xs font-bold text-slate-900">Google Sheet</p>
+                    <p className="text-[10px] text-slate-400 truncate">Sheet URL</p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSheetType('google_forms');
+                    setSheetUrl(DEFAULT_RESCUEBRIDGE_FORM_URL);
+                    if (!newSheetTitle) setNewSheetTitle('RESCUEBRIDGE FORM');
+                  }}
+                  className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
+                    sheetType === 'google_forms'
+                      ? 'border-purple-600 bg-purple-50/60 ring-2 ring-purple-500/20'
+                      : 'border-slate-200 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <FormInput className="w-4 h-4 text-purple-600" />
+                  <div>
+                    <p className="text-xs font-bold text-purple-950">Google Form</p>
+                    <p className="text-[10px] text-slate-400 truncate">Form URL</p>
                   </div>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setSheetType('excel_365')}
-                  className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                  className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
                     sheetType === 'excel_365'
                       ? 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-500/20'
                       : 'border-slate-200 bg-white hover:bg-slate-50'
@@ -1319,13 +1694,40 @@ export default function SheetSyncHub() {
                 >
                   <UploadCloud className="w-4 h-4 text-teal-600" />
                   <div>
-                    <p className="text-xs font-bold text-slate-900">Excel / CSV File</p>
-                    <p className="text-[10px] text-slate-400">Upload .xlsx or .csv</p>
+                    <p className="text-xs font-bold text-slate-900">Excel / CSV</p>
+                    <p className="text-[10px] text-slate-400 truncate">Upload file</p>
                   </div>
                 </button>
               </div>
 
-              {sheetType === 'google_sheets' ? (
+              {sheetType === 'google_forms' && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Google Form URL *
+                    </label>
+                    <input
+                      type="url"
+                      required
+                      placeholder="https://docs.google.com/forms/d/e/.../viewform"
+                      value={sheetUrl}
+                      onChange={(e) => setSheetUrl(e.target.value)}
+                      className="w-full text-xs rounded-xl border border-slate-300 p-2.5 font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+                  <div className="bg-purple-50 border border-purple-200/80 rounded-xl p-3 text-[11px] text-purple-900 space-y-1">
+                    <p className="font-bold flex items-center gap-1.5 text-purple-950">
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                      RESCUEBRIDGE FORM Detected
+                    </p>
+                    <p className="text-purple-700">
+                      All submissions with Patient Name, Phone, Doctor, Appointment Date, and Issue Detail will be entered into the database and displayed live.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {sheetType === 'google_sheets' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Google Spreadsheet Link
@@ -1335,11 +1737,20 @@ export default function SheetSyncHub() {
                     required
                     placeholder="https://docs.google.com/spreadsheets/d/..."
                     value={sheetUrl}
-                    onChange={(e) => setSheetUrl(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSheetUrl(val);
+                      if (val.includes('docs.google.com/forms')) {
+                        setSheetType('google_forms');
+                        if (!newSheetTitle) setNewSheetTitle('RESCUEBRIDGE FORM');
+                      }
+                    }}
                     className="w-full text-xs rounded-xl border border-slate-300 p-2.5 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
-              ) : (
+              )}
+
+              {sheetType === 'excel_365' && (
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Browse Excel / CSV File
@@ -1491,6 +1902,263 @@ export default function SheetSyncHub() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Ingest Google Form Patient Response ────────────── */}
+      {showGoogleFormModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+                  <FormInput className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Ingest Google Form Response
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Saves patient details to the database and displays them in the live consultations UI.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGoogleFormModal(false)}
+                className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center justify-between bg-purple-50/70 border border-purple-200/80 p-3 rounded-2xl">
+              <div>
+                <p className="text-xs font-bold text-purple-900">RESCUEBRIDGE FORM Fields</p>
+                <p className="text-[10px] text-purple-700">Pre-fill realistic patient response to test live sync</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const sampleNames = ['Karthik Subramanian', 'Priya S', 'Suresh Kumar', 'Deepa Venkat', 'Anand Verma'];
+                  const randomName = sampleNames[Math.floor(Math.random() * sampleNames.length)];
+                  const randomPhone = `+9198765${Math.floor(10000 + Math.random() * 90000)}`;
+                  setGoogleFormSubmission({
+                    patient_name: randomName,
+                    phone: randomPhone,
+                    doctor: 'Dr. Ramesh Kumar',
+                    visit_date: new Date().toISOString().split('T')[0],
+                    department: 'General Consultation - Fever & Cough',
+                  });
+                }}
+                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>⚡ Quick Fill Sample</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleIngestGoogleForm} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  PATIENT NAME *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Karthik Subramanian"
+                  value={googleFormSubmission.patient_name}
+                  onChange={(e) =>
+                    setGoogleFormSubmission({ ...googleFormSubmission, patient_name: e.target.value })
+                  }
+                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  PHONE NUMBER: (WhatsApp) *
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="+919876543210"
+                  value={googleFormSubmission.phone}
+                  onChange={(e) =>
+                    setGoogleFormSubmission({ ...googleFormSubmission, phone: e.target.value })
+                  }
+                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    APPOINTEMENT DATE *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={googleFormSubmission.visit_date}
+                    onChange={(e) =>
+                      setGoogleFormSubmission({ ...googleFormSubmission, visit_date: e.target.value })
+                    }
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    DOCTOR NAME *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Dr. Ramesh Kumar"
+                    value={googleFormSubmission.doctor}
+                    onChange={(e) =>
+                      setGoogleFormSubmission({ ...googleFormSubmission, doctor: e.target.value })
+                    }
+                    className="w-full text-xs rounded-xl border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  ISSUE DETAIL (Department / Reason)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. General Consultation, Fever, Joint pain"
+                  value={googleFormSubmission.department}
+                  onChange={(e) =>
+                    setGoogleFormSubmission({ ...googleFormSubmission, department: e.target.value })
+                  }
+                  className="w-full text-xs rounded-xl border border-slate-300 p-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowGoogleFormModal(false)}
+                  className="px-4 py-2.5 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingFormResponse}
+                  className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  {submittingFormResponse ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving to Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Save Response to Database & Live UI</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Google Apps Script Webhook Snippet ──────────────── */}
+      {showAppsScriptModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full p-6 sm:p-7 space-y-5 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200/80 flex items-center justify-center shadow-xs">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Google Forms Webhook Trigger Setup
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Automatically dispatches patient responses to RescueBridge whenever submitted.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAppsScriptModal(false)}
+                className="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto pr-1 flex-1 text-xs">
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                <p className="font-bold text-slate-900">Easy 3-Step Setup Instructions:</p>
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-600 text-[11px] leading-relaxed">
+                  <li>
+                    In your Google Form, click the <strong className="text-slate-900">⋮ (More)</strong> menu at the top right, then select <strong className="text-slate-900">Script editor</strong>.
+                  </li>
+                  <li>
+                    Delete any default code, paste the script below, and click <strong className="text-slate-900">Save (💾)</strong>.
+                  </li>
+                  <li>
+                    Click <strong className="text-slate-900">Triggers (⏰)</strong> on the left sidebar → <strong className="text-slate-900">Add Trigger</strong>:
+                    <ul className="list-disc list-inside ml-4 mt-1 text-slate-500">
+                      <li>Function: <code className="text-purple-700 font-bold">onFormSubmit</code></li>
+                      <li>Event Source: <code className="text-purple-700 font-bold">From form</code></li>
+                      <li>Event Type: <code className="text-purple-700 font-bold">On form submit</code></li>
+                    </ul>
+                  </li>
+                </ol>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-slate-800 text-xs">Google Apps Script Code</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generateAppsScriptSnippet(hospitalId));
+                      setCopiedScript(true);
+                      setTimeout(() => setCopiedScript(false), 3000);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-xs font-bold transition-all shadow-xs"
+                  >
+                    {copiedScript ? (
+                      <>
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Copied to Clipboard!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Apps Script</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <pre className="bg-slate-900 text-emerald-400 p-4 rounded-2xl text-[11px] font-mono overflow-x-auto max-h-60 leading-relaxed border border-slate-800">
+                  {generateAppsScriptSnippet(hospitalId)}
+                </pre>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-end flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAppsScriptModal(false)}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -2,7 +2,7 @@
 
 export type UserRole = 'super_admin' | 'hospital_admin' | 'staff';
 
-export type SheetType = 'google_sheets' | 'excel_365' | 'onedrive' | 'manual';
+export type SheetType = 'google_sheets' | 'excel_365' | 'onedrive' | 'google_forms' | 'manual';
 
 export interface Hospital {
   id: string;
@@ -106,7 +106,7 @@ export interface ColumnMapping {
 export interface HospitalSheetConnection {
   id: string;
   hospital_id: string;
-  sheet_type: 'google_sheets' | 'excel_365' | 'onedrive';
+  sheet_type: 'google_sheets' | 'excel_365' | 'onedrive' | 'google_forms';
   sheet_id: string;
   table_name: string;
   column_mapping: ColumnMapping;
