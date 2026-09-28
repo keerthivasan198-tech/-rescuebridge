@@ -244,23 +244,20 @@ export default function Login() {
           </div>
         )}
 
-        {/* ── View 1: 3 Role Cards with Static 3D Minimal Depth ───── */}
+        {/* ── View 1: 3 Role Cards with Pure White Outer Layer & Static 3D Minimal Depth ───── */}
         {selectedRole === 'selection' && activeTab === 'signin' && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
-            {/* 1. Admin Login Card (Static 3D Minimal Purple) */}
-            <div className="relative bg-white rounded-3xl p-7 border-2 border-purple-200/90 shadow-[0_18px_40px_-10px_rgba(147,51,234,0.15),0_6px_18px_-2px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex flex-col justify-between overflow-hidden">
-              {/* Top reflection highlight */}
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
-
+            {/* 1. Admin Login Card */}
+            <div className="bg-white rounded-3xl p-7 border border-slate-200 shadow-[0_16px_36px_-6px_rgba(15,23,42,0.08),0_4px_12px_-2px_rgba(15,23,42,0.04)] flex flex-col justify-between">
               <div>
-                {/* Static 3D Elevated Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-purple-500/30 ring-4 ring-purple-50">
+                {/* 3D Elevated Icon */}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center mb-5 shadow-md shadow-purple-500/25 ring-4 ring-slate-50">
                   <ShieldCheck className="w-7 h-7" />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight">Admin Login</h3>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/80">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                     Network
                   </span>
                 </div>
@@ -274,15 +271,15 @@ export default function Login() {
                 </p>
 
                 {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-slate-50/90 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
+                <div className="mt-5 p-3 bg-slate-50 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
                   <span className="truncate">superadmin@rescuebridge.com</span>
-                  <span className="text-[10px] uppercase font-sans font-bold text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] uppercase font-sans font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-xs">
                     Demo
                   </span>
                 </div>
               </div>
 
-              {/* Static 3D Button */}
+              {/* Button */}
               <button
                 type="button"
                 onClick={() => setSelectedRole('admin')}
@@ -293,20 +290,17 @@ export default function Login() {
               </button>
             </div>
 
-            {/* 2. Hospital Login Card (Static 3D Minimal Emerald - Hero Centerpiece) */}
-            <div className="relative bg-white rounded-3xl p-7 border-2 border-emerald-300 shadow-[0_20px_45px_-10px_rgba(16,185,129,0.2),0_6px_18px_-2px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex flex-col justify-between overflow-hidden">
-              {/* Top specular shine */}
-              <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500" />
-
+            {/* 2. Hospital Login Card (Hero Centerpiece) */}
+            <div className="bg-white rounded-3xl p-7 border border-slate-200 shadow-[0_18px_40px_-6px_rgba(15,23,42,0.1),0_4px_12px_-2px_rgba(15,23,42,0.04)] flex flex-col justify-between">
               <div>
-                {/* Static 3D Elevated Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-emerald-500/35 ring-4 ring-emerald-50">
+                {/* 3D Elevated Icon */}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center mb-5 shadow-md shadow-emerald-500/30 ring-4 ring-slate-50">
                   <Building2 className="w-7 h-7" />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight">Hospital Login</h3>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300/80 shadow-xs">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-800 border border-slate-200 shadow-xs">
                     ★ Primary
                   </span>
                 </div>
@@ -320,15 +314,15 @@ export default function Login() {
                 </p>
 
                 {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-emerald-50/50 rounded-2xl text-[11px] font-mono text-slate-700 border border-emerald-200/80 shadow-inner flex items-center justify-between">
+                <div className="mt-5 p-3 bg-slate-50 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
                   <span className="truncate">City Care / Apex Multi-Specialty</span>
-                  <span className="text-[10px] uppercase font-sans font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] uppercase font-sans font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-xs">
                     2 Clinics
                   </span>
                 </div>
               </div>
 
-              {/* Static 3D Button */}
+              {/* Button */}
               <button
                 type="button"
                 onClick={() => setSelectedRole('hospital')}
@@ -339,20 +333,17 @@ export default function Login() {
               </button>
             </div>
 
-            {/* 3. Staff Login Card (Static 3D Minimal Blue/Slate) */}
-            <div className="relative bg-white rounded-3xl p-7 border-2 border-blue-200/90 shadow-[0_18px_40px_-10px_rgba(59,130,246,0.15),0_6px_18px_-2px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex flex-col justify-between overflow-hidden">
-              {/* Top reflection highlight */}
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
-
+            {/* 3. Staff Login Card */}
+            <div className="bg-white rounded-3xl p-7 border border-slate-200 shadow-[0_16px_36px_-6px_rgba(15,23,42,0.08),0_4px_12px_-2px_rgba(15,23,42,0.04)] flex flex-col justify-between">
               <div>
-                {/* Static 3D Elevated Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-slate-800 text-white flex items-center justify-center mb-5 shadow-lg shadow-blue-500/30 ring-4 ring-blue-50">
+                {/* 3D Elevated Icon */}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-slate-800 text-white flex items-center justify-center mb-5 shadow-md shadow-slate-900/25 ring-4 ring-slate-50">
                   <UserCheck className="w-7 h-7" />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight">Staff Login</h3>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
                     Front Desk
                   </span>
                 </div>
@@ -366,15 +357,15 @@ export default function Login() {
                 </p>
 
                 {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-slate-50/90 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
+                <div className="mt-5 p-3 bg-slate-50 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
                   <span className="truncate">staff@citycare.com</span>
-                  <span className="text-[10px] uppercase font-sans font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] uppercase font-sans font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-xs">
                     Desk
                   </span>
                 </div>
               </div>
 
-              {/* Static 3D Button */}
+              {/* Button */}
               <button
                 type="button"
                 onClick={() => setSelectedRole('staff')}
