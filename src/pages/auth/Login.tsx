@@ -237,91 +237,226 @@ export default function Login() {
           </div>
         )}
 
-        {/* ── View 1: 3 Role Cards Theme (Matching Image 1) ─────────── */}
+        {/* ── View 1: 3 High-Quality Role Cards ──────────────────────── */}
         {selectedRole === 'selection' && activeTab === 'signin' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-7 items-stretch">
             {/* 1. Admin Login Card */}
-            <div className="bg-white p-6 rounded-3xl border border-purple-200 ring-1 ring-purple-400/30 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center mb-4 shadow-xs">
-                  <ShieldCheck className="w-6 h-6" />
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between overflow-hidden relative group">
+              {/* Subtle top accent gradient */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-500" />
+
+              <div className="p-7 sm:p-8 flex-1 flex flex-col justify-between">
+                <div>
+                  {/* Icon & Category Pill */}
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-700 text-white flex items-center justify-center shadow-lg shadow-purple-500/20 group-hover:scale-105 transition-transform duration-300">
+                      <ShieldCheck className="w-7 h-7" />
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-purple-50 text-purple-700 border border-purple-200/70">
+                      Super Admin
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                    Admin Portal
+                  </h3>
+                  <p className="text-xs text-purple-700 font-bold mt-1">
+                    Multi-Hospital Global Controller
+                  </p>
+
+                  <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+                    Master administrator access to oversee all partner hospital accounts, global spreadsheet sync pipelines, and system configurations.
+                  </p>
+
+                  {/* Feature Checklist */}
+                  <div className="mt-5 pt-5 border-t border-slate-100 space-y-2.5">
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>Manage all partner hospitals & onboarding</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>Global sheet sync & automation engine</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>System-wide patient review performance</span>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">Admin Login</h3>
-                <p className="text-xs text-purple-700 font-bold mt-0.5">
-                  Platform Controller (All Hospitals)
-                </p>
-                <p className="text-xs text-slate-500 mt-2.5 leading-relaxed">
-                  Super admin portal with global access. Manages all partner hospitals, sheet sync pipelines, and global review automations.
-                </p>
-                <div className="mt-4 p-2.5 bg-slate-50 rounded-xl text-[11px] font-mono text-slate-600 border border-slate-100">
-                  superadmin@rescuebridge.com
+
+                <div className="mt-6 pt-5 border-t border-slate-100">
+                  {/* Demo Credential Badge */}
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-200/70 rounded-xl px-3.5 py-2 mb-4">
+                    <span className="text-[11px] text-slate-400 font-medium">Demo Access</span>
+                    <span className="text-[11px] font-mono font-semibold text-purple-800">
+                      superadmin@rescuebridge.com
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('admin')}
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-purple-600/20 transition-all group-hover:gap-3"
+                  >
+                    <span>Enter Admin Portal</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedRole('admin')}
-                className="mt-6 w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all group-hover:gap-2.5"
-              >
-                Enter as Admin
-                <ArrowRight className="w-4 h-4" />
-              </button>
             </div>
 
-            {/* 2. Hospital Login Card */}
-            <div className="bg-white p-6 rounded-3xl border border-emerald-200 ring-2 ring-emerald-500/20 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center mb-4 shadow-xs">
-                  <Building2 className="w-6 h-6" />
-                </div>
-                <h3 className="text-base font-bold text-slate-900">Hospital Login</h3>
-                <p className="text-xs text-emerald-700 font-bold mt-0.5">
-                  Handles Their Hospital Only
-                </p>
-                <p className="text-xs text-slate-500 mt-2.5 leading-relaxed">
-                  Hospital management portal. View and handle review funnels, WhatsApp dispatches, and private low-rating alerts for your clinic only.
-                </p>
-                <div className="mt-4 p-2.5 bg-slate-50 rounded-xl text-[11px] font-mono text-slate-600 border border-slate-100 truncate">
-                  City Care / Apex Multi-Specialty
-                </div>
+            {/* 2. Hospital Login Card (Hero Card - Highlighted) */}
+            <div className="bg-white rounded-3xl border-2 border-emerald-500/80 shadow-md hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 flex flex-col justify-between overflow-hidden relative group ring-4 ring-emerald-500/10">
+              {/* Highlight ribbon banner */}
+              <div className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-[11px] font-bold text-center py-1.5 tracking-wide uppercase flex items-center justify-center gap-1.5 shadow-xs">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300" />
+                <span>Primary Clinic Portal</span>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedRole('hospital')}
-                className="mt-6 w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all group-hover:gap-2.5"
-              >
-                Enter as Hospital Admin
-                <ArrowRight className="w-4 h-4" />
-              </button>
+              <div className="p-7 sm:p-8 flex-1 flex flex-col justify-between">
+                <div>
+                  {/* Icon & Category Pill */}
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center shadow-lg shadow-emerald-600/25 group-hover:scale-105 transition-transform duration-300">
+                      <Building2 className="w-7 h-7" />
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      Single-Hospital
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                    Hospital Login
+                  </h3>
+                  <p className="text-xs text-emerald-700 font-bold mt-1">
+                    Isolated Hospital Operations
+                  </p>
+
+                  <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+                    Hospital management suite. Manage your automated WhatsApp review funnel, sync your Google Sheets, and view private low-rating alerts.
+                  </p>
+
+                  {/* Feature Checklist */}
+                  <div className="mt-5 pt-5 border-t border-slate-100 space-y-2.5">
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>Dedicated single-tenant clinic dashboard</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>Automated WhatsApp 5★ review funnels</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>Private 1–3★ patient management alerts</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 pt-5 border-t border-slate-100">
+                  {/* Demo Credential Badge */}
+                  <div className="flex items-center justify-between bg-emerald-50/60 border border-emerald-200/70 rounded-xl px-3.5 py-2 mb-4">
+                    <span className="text-[11px] text-slate-500 font-medium">Partner Clinics</span>
+                    <span className="text-[11px] font-semibold text-emerald-800 truncate">
+                      City Care • Apex Multi-Specialty
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('hospital')}
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 transition-all group-hover:gap-3"
+                  >
+                    <span>Enter Hospital Admin</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* 3. Staff Login Card */}
-            <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center mb-4 shadow-xs">
-                  <UserCheck className="w-6 h-6" />
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 flex flex-col justify-between overflow-hidden relative group">
+              {/* Subtle top accent gradient */}
+              <div className="h-1.5 w-full bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600" />
+
+              <div className="p-7 sm:p-8 flex-1 flex flex-col justify-between">
+                <div>
+                  {/* Icon & Category Pill */}
+                  <div className="flex items-center justify-between mb-5">
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform duration-300">
+                      <UserCheck className="w-7 h-7" />
+                    </div>
+                    <span className="px-3 py-1 rounded-full text-[11px] font-bold tracking-wide uppercase bg-blue-50 text-blue-700 border border-blue-200/70">
+                      Front Desk
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+                    Staff Login
+                  </h3>
+                  <p className="text-xs text-blue-700 font-bold mt-1">
+                    Front-Desk & Visit Registration
+                  </p>
+
+                  <p className="text-xs text-slate-500 mt-3 leading-relaxed">
+                    Designed for receptionists and consultation staff to quickly register patients and mark consultations complete to trigger reviews.
+                  </p>
+
+                  {/* Feature Checklist */}
+                  <div className="mt-5 pt-5 border-t border-slate-100 space-y-2.5">
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>Fast patient check-in & consultation entry</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>1-click "Mark Complete" review dispatch</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-slate-700">
+                      <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 text-[10px] font-bold">
+                        ✓
+                      </div>
+                      <span>Instant copy patient review link & QR preview</span>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-base font-bold text-slate-900">Staff Login</h3>
-                <p className="text-xs text-blue-700 font-bold mt-0.5">
-                  Visits & "Mark Complete"
-                </p>
-                <p className="text-xs text-slate-500 mt-2.5 leading-relaxed">
-                  Front-desk role: register incoming patient visits and click "Mark Complete" to trigger review dispatches for your hospital.
-                </p>
-                <div className="mt-4 p-2.5 bg-slate-50 rounded-xl text-[11px] font-mono text-slate-600 border border-slate-100">
-                  staff@citycare.com
+
+                <div className="mt-6 pt-5 border-t border-slate-100">
+                  {/* Demo Credential Badge */}
+                  <div className="flex items-center justify-between bg-slate-50 border border-slate-200/70 rounded-xl px-3.5 py-2 mb-4">
+                    <span className="text-[11px] text-slate-400 font-medium">Demo Staff</span>
+                    <span className="text-[11px] font-mono font-semibold text-blue-800">
+                      staff@citycare.com
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole('staff')}
+                    className="w-full py-3.5 px-4 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-slate-900/20 transition-all group-hover:gap-3"
+                  >
+                    <span>Enter Staff Desk</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedRole('staff')}
-                className="mt-6 w-full py-3 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm transition-all group-hover:gap-2.5"
-              >
-                Enter as Staff
-                <ArrowRight className="w-4 h-4" />
-              </button>
             </div>
           </div>
         )}
