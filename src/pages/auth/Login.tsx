@@ -244,23 +244,23 @@ export default function Login() {
           </div>
         )}
 
-        {/* ── View 1: 3 Role Cards with 3D Minimal Depth ───────────── */}
+        {/* ── View 1: 3 Role Cards with Static 3D Minimal Depth ───── */}
         {selectedRole === 'selection' && activeTab === 'signin' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch perspective-1000">
-            {/* 1. Admin Login Card (3D Minimal Purple) */}
-            <div className="relative bg-white/95 rounded-3xl p-7 border border-slate-200/90 shadow-[0_14px_35px_-8px_rgba(15,23,42,0.08),0_4px_12px_-2px_rgba(15,23,42,0.03)] hover:shadow-[0_28px_60px_-15px_rgba(147,51,234,0.18),0_10px_25px_-5px_rgba(15,23,42,0.06)] hover:-translate-y-2.5 transition-all duration-300 ease-out flex flex-col justify-between group overflow-hidden">
-              {/* Subtle top reflection specular highlight */}
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-purple-400/40 to-transparent" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 items-stretch">
+            {/* 1. Admin Login Card (Static 3D Minimal Purple) */}
+            <div className="relative bg-white rounded-3xl p-7 border-2 border-purple-200/90 shadow-[0_18px_40px_-10px_rgba(147,51,234,0.15),0_6px_18px_-2px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex flex-col justify-between overflow-hidden">
+              {/* Top reflection highlight */}
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
 
               <div>
-                {/* 3D Floating Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-purple-500/25 ring-4 ring-purple-50 group-hover:scale-105 transition-transform duration-300">
+                {/* Static 3D Elevated Icon */}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-indigo-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-purple-500/30 ring-4 ring-purple-50">
                   <ShieldCheck className="w-7 h-7" />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight">Admin Login</h3>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/80">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200/80">
                     Network
                   </span>
                 </div>
@@ -274,33 +274,33 @@ export default function Login() {
                 </p>
 
                 {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-slate-50/90 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/70 shadow-inner flex items-center justify-between">
+                <div className="mt-5 p-3 bg-slate-50/90 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
                   <span className="truncate">superadmin@rescuebridge.com</span>
-                  <span className="text-[10px] uppercase font-sans font-bold text-purple-700 bg-purple-100/60 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] uppercase font-sans font-bold text-purple-700 bg-purple-100/70 px-2 py-0.5 rounded-md">
                     Demo
                   </span>
                 </div>
               </div>
 
-              {/* 3D Tactile Button */}
+              {/* Static 3D Button */}
               <button
                 type="button"
                 onClick={() => setSelectedRole('admin')}
-                className="mt-7 w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-purple-500/25 hover:shadow-lg hover:shadow-purple-500/35 transition-all duration-200 active:translate-y-0.5 active:shadow-xs group-hover:gap-3"
+                className="mt-7 w-full py-3.5 px-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-105 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-purple-500/25"
               >
                 <span>Enter as Admin</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
 
-            {/* 2. Hospital Login Card (3D Minimal Emerald - Hero Centerpiece) */}
-            <div className="relative bg-white rounded-3xl p-7 border-2 border-emerald-400/80 shadow-[0_16px_40px_-8px_rgba(16,185,129,0.12),0_6px_16px_-2px_rgba(15,23,42,0.04)] hover:shadow-[0_32px_65px_-15px_rgba(16,185,129,0.25),0_12px_30px_-5px_rgba(15,23,42,0.08)] hover:-translate-y-3 transition-all duration-300 ease-out flex flex-col justify-between group overflow-hidden md:-mt-2 md:mb-2">
-              {/* Subtle top emerald specular shine */}
+            {/* 2. Hospital Login Card (Static 3D Minimal Emerald - Hero Centerpiece) */}
+            <div className="relative bg-white rounded-3xl p-7 border-2 border-emerald-300 shadow-[0_20px_45px_-10px_rgba(16,185,129,0.2),0_6px_18px_-2px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex flex-col justify-between overflow-hidden">
+              {/* Top specular shine */}
               <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-500" />
 
               <div>
-                {/* 3D Floating Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-emerald-500/30 ring-4 ring-emerald-50 group-hover:scale-105 transition-transform duration-300">
+                {/* Static 3D Elevated Icon */}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center mb-5 shadow-lg shadow-emerald-500/35 ring-4 ring-emerald-50">
                   <Building2 className="w-7 h-7" />
                 </div>
 
@@ -320,7 +320,7 @@ export default function Login() {
                 </p>
 
                 {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-emerald-50/50 rounded-2xl text-[11px] font-mono text-slate-700 border border-emerald-200/70 shadow-inner flex items-center justify-between">
+                <div className="mt-5 p-3 bg-emerald-50/50 rounded-2xl text-[11px] font-mono text-slate-700 border border-emerald-200/80 shadow-inner flex items-center justify-between">
                   <span className="truncate">City Care / Apex Multi-Specialty</span>
                   <span className="text-[10px] uppercase font-sans font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-md">
                     2 Clinics
@@ -328,31 +328,31 @@ export default function Login() {
                 </div>
               </div>
 
-              {/* 3D Tactile Button */}
+              {/* Static 3D Button */}
               <button
                 type="button"
                 onClick={() => setSelectedRole('hospital')}
-                className="mt-7 w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-600/30 hover:shadow-lg hover:shadow-emerald-600/40 transition-all duration-200 active:translate-y-0.5 active:shadow-xs group-hover:gap-3"
+                className="mt-7 w-full py-3.5 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:brightness-105 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-600/30"
               >
                 <span>Enter as Hospital Admin</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
 
-            {/* 3. Staff Login Card (3D Minimal Blue/Slate) */}
-            <div className="relative bg-white/95 rounded-3xl p-7 border border-slate-200/90 shadow-[0_14px_35px_-8px_rgba(15,23,42,0.08),0_4px_12px_-2px_rgba(15,23,42,0.03)] hover:shadow-[0_28px_60px_-15px_rgba(59,130,246,0.18),0_10px_25px_-5px_rgba(15,23,42,0.06)] hover:-translate-y-2.5 transition-all duration-300 ease-out flex flex-col justify-between group overflow-hidden">
-              {/* Subtle top reflection specular highlight */}
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-blue-400/40 to-transparent" />
+            {/* 3. Staff Login Card (Static 3D Minimal Blue/Slate) */}
+            <div className="relative bg-white rounded-3xl p-7 border-2 border-blue-200/90 shadow-[0_18px_40px_-10px_rgba(59,130,246,0.15),0_6px_18px_-2px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex flex-col justify-between overflow-hidden">
+              {/* Top reflection highlight */}
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-blue-400/50 to-transparent" />
 
               <div>
-                {/* 3D Floating Icon */}
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-slate-800 text-white flex items-center justify-center mb-5 shadow-lg shadow-blue-500/25 ring-4 ring-blue-50 group-hover:scale-105 transition-transform duration-300">
+                {/* Static 3D Elevated Icon */}
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-slate-800 text-white flex items-center justify-center mb-5 shadow-lg shadow-blue-500/30 ring-4 ring-blue-50">
                   <UserCheck className="w-7 h-7" />
                 </div>
 
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-bold text-slate-900 tracking-tight">Staff Login</h3>
-                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80">
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200/80">
                     Front Desk
                   </span>
                 </div>
@@ -366,22 +366,22 @@ export default function Login() {
                 </p>
 
                 {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-slate-50/90 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/70 shadow-inner flex items-center justify-between">
+                <div className="mt-5 p-3 bg-slate-50/90 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
                   <span className="truncate">staff@citycare.com</span>
-                  <span className="text-[10px] uppercase font-sans font-bold text-blue-700 bg-blue-100/60 px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] uppercase font-sans font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
                     Desk
                   </span>
                 </div>
               </div>
 
-              {/* 3D Tactile Button */}
+              {/* Static 3D Button */}
               <button
                 type="button"
                 onClick={() => setSelectedRole('staff')}
-                className="mt-7 w-full py-3.5 px-4 bg-gradient-to-r from-slate-900 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-slate-900/25 hover:shadow-lg hover:shadow-slate-900/35 transition-all duration-200 active:translate-y-0.5 active:shadow-xs group-hover:gap-3"
+                className="mt-7 w-full py-3.5 px-4 bg-gradient-to-r from-slate-900 to-slate-800 hover:brightness-110 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-slate-900/25"
               >
                 <span>Enter as Staff</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
