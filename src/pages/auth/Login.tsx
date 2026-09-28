@@ -30,9 +30,9 @@ export default function Login() {
   const [activeTab, setActiveTab] = useState<'signin' | 'onboard'>('signin');
 
   const [availableHospitals, setAvailableHospitals] = useState<Hospital[]>([]);
-  const [selectedHospitalId, setSelectedHospitalId] = useState<string>('');
+  const [hospitalNameInput, setHospitalNameInput] = useState<string>('');
 
-  // Form inputs
+  // Form inputs (Empty by default - no dummy values)
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -44,36 +44,22 @@ export default function Login() {
   const [newGoogleReviewUrl, setNewGoogleReviewUrl] = useState('');
   const [onboardLoading, setOnboardLoading] = useState(false);
 
-  // Load available hospitals
+  // Load hospitals for validation
   useEffect(() => {
     async function load() {
       const list = await db.getHospitals();
       setAvailableHospitals(list);
-      if (list.length > 0) {
-        setSelectedHospitalId(list[0].id);
-      }
     }
     load();
   }, []);
 
-  // Update default credentials when role or hospital is picked
+  // Reset fields when role changes (no dummy values)
   useEffect(() => {
     setError(null);
-    if (selectedRole === 'admin') {
-      setEmail('superadmin@rescuebridge.com');
-      setPassword('••••••••');
-    } else if (selectedRole === 'hospital') {
-      setPassword('••••••••');
-      if (selectedHospitalId === '22222222-2222-2222-2222-222222222222') {
-        setEmail('admin@apexclinic.com');
-      } else {
-        setEmail('admin@citycare.com');
-      }
-    } else if (selectedRole === 'staff') {
-      setPassword('••••••••');
-      setEmail('staff@citycare.com');
-    }
-  }, [selectedRole, selectedHospitalId]);
+    setEmail('');
+    setPassword('');
+    setHospitalNameInput('');
+  }, [selectedRole]);
 
   // If already authenticated, redirect straight to their dashboard
   if (currentUser) {
@@ -93,35 +79,42 @@ export default function Login() {
       if (selectedRole === 'admin') {
         const ok = await login(email.trim());
         if (!ok) {
-          setError('Invalid Admin credentials. Use superadmin@rescuebridge.com');
+          setError('Invalid Admin credentials. Please check your email and password.');
         }
-      } else if (selectedRole === 'hospital') {
-        // Find hospital admin for this hospital
-        const users = await db.getUsers(selectedHospitalId);
+      } else if (selectedRole === 'hospital' || selectedRole === 'staff') {
+        if (!hospitalNameInput.trim()) {
+          setError('Please enter your hospital name.');
+          setLoading(false);
+          return;
+        }
+
+        const query = hospitalNameInput.trim().toLowerCase();
+        // Match hospital by name or subdomain
+        const matched = availableHospitals.find(
+          (h) =>
+            h.name.toLowerCase() === query ||
+            h.subdomain.toLowerCase() === query ||
+            h.name.toLowerCase().includes(query)
+        );
+
+        if (!matched) {
+          setError(`Hospital "${hospitalNameInput}" not found. Please enter your valid registered hospital name.`);
+          setLoading(false);
+          return;
+        }
+
+        const targetRole = selectedRole === 'hospital' ? 'hospital_admin' : 'staff';
+        const users = await db.getUsers(matched.id);
         const match =
-          users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim() && u.role === 'hospital_admin') ||
-          users.find((u) => u.hospital_id === selectedHospitalId && u.role === 'hospital_admin');
+          users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim() && u.role === targetRole) ||
+          users.find((u) => u.hospital_id === matched.id && u.role === targetRole);
 
         if (match) {
-          await switchUserRole('hospital_admin', selectedHospitalId);
+          await switchUserRole(targetRole, matched.id);
         } else {
           const ok = await login(email.trim());
           if (!ok) {
-            setError(`No hospital admin account found for ${email}`);
-          }
-        }
-      } else if (selectedRole === 'staff') {
-        const users = await db.getUsers(selectedHospitalId);
-        const match =
-          users.find((u) => u.email.toLowerCase() === email.toLowerCase().trim() && u.role === 'staff') ||
-          users.find((u) => u.hospital_id === selectedHospitalId && u.role === 'staff');
-
-        if (match) {
-          await switchUserRole('staff', selectedHospitalId);
-        } else {
-          const ok = await login(email.trim());
-          if (!ok) {
-            setError(`No staff account found for ${email}`);
+            setError(`No ${targetRole.replace('_', ' ')} account found for "${email}" in ${matched.name}.`);
           }
         }
       }
@@ -269,14 +262,6 @@ export default function Login() {
                 <p className="text-xs text-slate-500 mt-3 leading-relaxed">
                   Super admin portal with global access. Manages all partner hospitals, sheet sync pipelines, and global review automations.
                 </p>
-
-                {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-slate-50 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
-                  <span className="truncate">superadmin@rescuebridge.com</span>
-                  <span className="text-[10px] uppercase font-sans font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-xs">
-                    Demo
-                  </span>
-                </div>
               </div>
 
               {/* Button */}
@@ -312,14 +297,6 @@ export default function Login() {
                 <p className="text-xs text-slate-500 mt-3 leading-relaxed">
                   Hospital management portal. View and handle review funnels, WhatsApp dispatches, and private low-rating alerts for your clinic only.
                 </p>
-
-                {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-slate-50 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
-                  <span className="truncate">City Care / Apex Multi-Specialty</span>
-                  <span className="text-[10px] uppercase font-sans font-bold text-slate-700 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-xs">
-                    2 Clinics
-                  </span>
-                </div>
               </div>
 
               {/* Button */}
@@ -355,14 +332,6 @@ export default function Login() {
                 <p className="text-xs text-slate-500 mt-3 leading-relaxed">
                   Front-desk role: register incoming patient visits and click "Mark Complete" to trigger review dispatches for your hospital.
                 </p>
-
-                {/* Minimalist Inset Demo Credential */}
-                <div className="mt-5 p-3 bg-slate-50 rounded-2xl text-[11px] font-mono text-slate-700 border border-slate-200/80 shadow-inner flex items-center justify-between">
-                  <span className="truncate">staff@citycare.com</span>
-                  <span className="text-[10px] uppercase font-sans font-bold text-slate-600 bg-white border border-slate-200 px-2 py-0.5 rounded-md shadow-xs">
-                    Desk
-                  </span>
-                </div>
               </div>
 
               {/* Button */}
@@ -435,25 +404,22 @@ export default function Login() {
                 )}
 
                 <form onSubmit={handleLoginSubmit} className="space-y-4">
-                  {/* Hospital Selector for Hospital Admin and Staff */}
+                  {/* Enter Hospital Name Input for Hospital Admin and Staff */}
                   {(selectedRole === 'hospital' || selectedRole === 'staff') && (
                     <div>
                       <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Select Your Hospital *
+                        Enter Your Hospital Name *
                       </label>
-                      <select
-                        value={selectedHospitalId}
-                        onChange={(e) => setSelectedHospitalId(e.target.value)}
-                        className="w-full text-xs font-semibold rounded-xl border border-slate-300 p-3 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                      >
-                        {availableHospitals.map((h) => (
-                          <option key={h.id} value={h.id}>
-                            {h.name} ({h.subdomain}.rescuebridge.com)
-                          </option>
-                        ))}
-                      </select>
+                      <input
+                        type="text"
+                        required
+                        value={hospitalNameInput}
+                        onChange={(e) => setHospitalNameInput(e.target.value)}
+                        placeholder="e.g. City Care Hospital"
+                        className="w-full text-xs rounded-xl border border-slate-300 p-3 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
                       <p className="text-[11px] text-slate-400 mt-1">
-                        You will be strictly locked into this hospital. No other clinic's data will be visible.
+                        Enter your registered hospital name to access your clinic's portal.
                       </p>
                     </div>
                   )}
@@ -481,7 +447,8 @@ export default function Login() {
                     <div className="relative">
                       <input
                         type="password"
-                        placeholder="••••••••"
+                        required
+                        placeholder="Enter your password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         className="w-full text-xs rounded-xl border border-slate-300 p-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -492,7 +459,12 @@ export default function Login() {
 
                   <button
                     type="submit"
-                    disabled={loading || !email.trim()}
+                    disabled={
+                      loading ||
+                      !email.trim() ||
+                      ((selectedRole === 'hospital' || selectedRole === 'staff') &&
+                        !hospitalNameInput.trim())
+                    }
                     className={`w-full py-3.5 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 ${
                       selectedRole === 'admin'
                         ? 'bg-purple-600 hover:bg-purple-700 disabled:bg-purple-300'
@@ -513,62 +485,6 @@ export default function Login() {
                     )}
                   </button>
                 </form>
-              </div>
-
-              {/* Ready-to-Test Accounts (matching Image 2) */}
-              <div className="p-4 bg-slate-50 border-t border-slate-100 text-center">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
-                  Ready-to-Test Accounts:
-                </p>
-                <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
-                  {selectedRole === 'admin' && (
-                    <button
-                      type="button"
-                      onClick={() => setEmail('superadmin@rescuebridge.com')}
-                      className="px-3 py-1 bg-white border border-slate-200 rounded-lg font-mono text-purple-700 hover:bg-purple-50 text-[11px]"
-                    >
-                      superadmin@rescuebridge.com
-                    </button>
-                  )}
-
-                  {selectedRole === 'hospital' && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedHospitalId('11111111-1111-1111-1111-111111111111');
-                          setEmail('admin@citycare.com');
-                        }}
-                        className="px-3 py-1 bg-white border border-slate-200 rounded-lg font-mono text-emerald-700 hover:bg-emerald-50 text-[11px]"
-                      >
-                        City Care: admin@citycare.com
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedHospitalId('22222222-2222-2222-2222-222222222222');
-                          setEmail('admin@apexclinic.com');
-                        }}
-                        className="px-3 py-1 bg-white border border-slate-200 rounded-lg font-mono text-teal-700 hover:bg-teal-50 text-[11px]"
-                      >
-                        Apex Clinic: admin@apexclinic.com
-                      </button>
-                    </>
-                  )}
-
-                  {selectedRole === 'staff' && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedHospitalId('11111111-1111-1111-1111-111111111111');
-                        setEmail('staff@citycare.com');
-                      }}
-                      className="px-3 py-1 bg-white border border-slate-200 rounded-lg font-mono text-slate-800 hover:bg-slate-100 text-[11px]"
-                    >
-                      staff@citycare.com
-                    </button>
-                  )}
-                </div>
               </div>
             </div>
           </div>
