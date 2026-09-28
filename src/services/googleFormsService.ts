@@ -18,14 +18,11 @@ export interface GoogleFormSubmission {
   hospital_id?: string;
 }
 
-export const DEFAULT_RESCUEBRIDGE_FORM_URL =
-  'https://docs.google.com/forms/d/e/1FAIpQLSexV2QSLHOODrJpbAjsyXCJKfL1VPNW2ek9WAsBOZnGIvythg/viewform?usp=publish-editor';
-
-export const RESCUEBRIDGE_FORM_FIELDS: GoogleFormFieldConfig[] = [
+export const STANDARD_FORM_FIELDS: GoogleFormFieldConfig[] = [
   { name: 'patient_name', label: 'PATIENT NAME', entryId: 'entry.1870727040', required: true },
   { name: 'phone', label: 'PHONE NUMBER:', entryId: 'entry.860089159', required: true },
   { name: 'doctor', label: 'DOCTOR NAME', entryId: 'entry.252675850', required: true },
-  { name: 'visit_date', label: 'APPOINTEMENT DATE', entryId: 'entry.2132932397', required: true },
+  { name: 'visit_date', label: 'APPOINTMENT DATE', entryId: 'entry.2132932397', required: true },
   { name: 'department', label: 'ISSUE DETAIL', entryId: 'entry.909604390', required: false },
 ];
 

@@ -44,8 +44,7 @@ import {
   parseGoogleFormUrl,
   generateAppsScriptSnippet,
   submitToGoogleFormPublic,
-  DEFAULT_RESCUEBRIDGE_FORM_URL,
-  RESCUEBRIDGE_FORM_FIELDS,
+  STANDARD_FORM_FIELDS,
 } from '../../services/googleFormsService';
 
 export default function SheetSyncHub() {
@@ -63,9 +62,7 @@ export default function SheetSyncHub() {
 
   // Connection Form State
   const [sheetType, setSheetType] = useState<'google_sheets' | 'excel_365' | 'google_forms'>('google_sheets');
-  const [sheetUrl, setSheetUrl] = useState(
-    'https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit'
-  );
+  const [sheetUrl, setSheetUrl] = useState('');
   const [uploadedFileName, setUploadedFileName] = useState('');
   const [uploadedRows, setUploadedRows] = useState<any[]>([]);
   const [showAdvancedMapping, setShowAdvancedMapping] = useState(false);
@@ -245,8 +242,12 @@ export default function SheetSyncHub() {
           conn.sheet_id.startsWith('http')
             ? conn.sheet_id
             : conn.sheet_type === 'google_forms'
-            ? `https://docs.google.com/forms/d/e/${conn.sheet_id}/viewform`
-            : `https://docs.google.com/spreadsheets/d/${conn.sheet_id}/edit`
+            ? conn.sheet_id
+              ? `https://docs.google.com/forms/d/e/${conn.sheet_id}/viewform`
+              : ''
+            : conn.sheet_id
+            ? `https://docs.google.com/spreadsheets/d/${conn.sheet_id}/edit`
+            : ''
         );
         setMapping(conn.column_mapping);
       } else {
@@ -453,10 +454,15 @@ export default function SheetSyncHub() {
     setSyncing(true);
     try {
       if (sheetType === 'google_forms') {
-        const formUrl = sheetUrl.trim() || DEFAULT_RESCUEBRIDGE_FORM_URL;
+        const formUrl = sheetUrl.trim();
+        if (!formUrl) {
+          alert('Please enter your Google Form link.');
+          setSyncing(false);
+          return;
+        }
         const formInfo = parseGoogleFormUrl(formUrl);
         const finalFormId = formInfo.formId || formUrl;
-        const finalTitle = newSheetTitle || 'RESCUEBRIDGE FORM';
+        const finalTitle = newSheetTitle.trim() || 'Google Form';
 
         await db.saveSheetConnection({
           hospital_id: hospitalId,
@@ -467,7 +473,7 @@ export default function SheetSyncHub() {
             visit_uid: 'Form Submission ID',
             patient_name: 'PATIENT NAME',
             phone: 'PHONE NUMBER:',
-            visit_date: 'APPOINTEMENT DATE',
+            visit_date: 'APPOINTMENT DATE',
             department: 'ISSUE DETAIL',
             doctor: 'DOCTOR NAME',
             status: 'status',
@@ -797,7 +803,7 @@ export default function SheetSyncHub() {
                   <div className="flex items-center gap-2">
                     <h2 className="text-base font-bold text-slate-900">
                       {connection.sheet_type === 'google_forms'
-                        ? (connection.table_name || 'RESCUEBRIDGE FORM')
+                        ? (connection.table_name || 'Google Form Source')
                         : connection.sheet_type === 'excel_365'
                         ? 'Microsoft Excel Spreadsheet'
                         : 'Google Sheets'}
@@ -847,20 +853,22 @@ export default function SheetSyncHub() {
                       <span>+ Ingest Form Response</span>
                     </button>
 
-                    <a
-                      href={
-                        sheetUrl.startsWith('http')
-                          ? sheetUrl
-                          : `https://docs.google.com/forms/d/e/${sheetUrl}/viewform`
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl transition-all shadow-xs"
-                      title="Open Google Form in a new tab"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Open Form</span>
-                    </a>
+                    {sheetUrl.trim() && (
+                      <a
+                        href={
+                          sheetUrl.startsWith('http')
+                            ? sheetUrl
+                            : `https://docs.google.com/forms/d/e/${sheetUrl}/viewform`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-bold rounded-xl transition-all shadow-xs"
+                        title="Open Google Form in a new tab"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        <span>Open Form</span>
+                      </a>
+                    )}
 
                     <button
                       onClick={() => setShowAppsScriptModal(true)}
@@ -992,6 +1000,8 @@ export default function SheetSyncHub() {
                 <button
                   onClick={() => {
                     setShowAddSheetModal(true);
+                    setSheetUrl('');
+                    setNewSheetTitle('');
                     setUploadedFileName('');
                     setUploadedRows([]);
                   }}
@@ -1037,7 +1047,11 @@ export default function SheetSyncHub() {
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                       <span>
                         {c.table_name ||
-                          (c.sheet_type === 'excel_365' ? 'Excel Import' : 'Google Sheet')}
+                          (c.sheet_type === 'excel_365'
+                            ? 'Excel Import'
+                            : c.sheet_type === 'google_forms'
+                            ? 'Google Form'
+                            : 'Google Sheet')}
                       </span>
                       <span className="text-[10px] text-slate-400 font-mono">
                         ({c.total_rows_tracked || 0} rows)
@@ -1049,6 +1063,8 @@ export default function SheetSyncHub() {
                   type="button"
                   onClick={() => {
                     setShowAddSheetModal(true);
+                    setSheetUrl('');
+                    setNewSheetTitle('');
                     setUploadedFileName('');
                     setUploadedRows([]);
                   }}
@@ -1227,8 +1243,7 @@ export default function SheetSyncHub() {
               type="button"
               onClick={() => {
                 setSheetType('google_forms');
-                setSheetUrl(DEFAULT_RESCUEBRIDGE_FORM_URL);
-                if (!newSheetTitle) setNewSheetTitle('RESCUEBRIDGE FORM');
+                setSheetUrl('');
               }}
               className={`p-4 rounded-2xl border text-left transition-all flex items-start gap-3.5 ${
                 sheetType === 'google_forms'
@@ -1292,9 +1307,11 @@ export default function SheetSyncHub() {
                     <label className="block text-xs font-bold text-slate-700">
                       Google Form URL *
                     </label>
-                    <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
-                      RESCUEBRIDGE FORM Connected
-                    </span>
+                    {sheetUrl.trim() && parseGoogleFormUrl(sheetUrl).isValid && (
+                      <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2.5 py-0.5 rounded-full border border-purple-200">
+                        Google Form Link Valid
+                      </span>
+                    )}
                   </div>
                   <input
                     type="url"
@@ -1315,52 +1332,54 @@ export default function SheetSyncHub() {
                   </p>
                 </div>
 
-                {/* Form fields overview */}
-                <div className="bg-purple-50/50 border border-purple-200/80 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-purple-600" />
-                      Google Form Fields & Database Mapping
-                    </p>
-                    <span className="text-[10px] font-mono font-bold text-purple-700 bg-white px-2 py-0.5 rounded-lg border border-purple-200">
-                      5 Fields Auto-Mapped
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    {RESCUEBRIDGE_FORM_FIELDS.map((f) => (
-                      <div
-                        key={f.name}
-                        className="flex items-center justify-between bg-white border border-purple-100 p-2.5 rounded-xl shadow-2xs"
+                {/* Form fields overview when link is valid */}
+                {sheetUrl.trim() && parseGoogleFormUrl(sheetUrl).isValid && (
+                  <div className="bg-purple-50/50 border border-purple-200/80 rounded-2xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-purple-600" />
+                        Google Form Fields & Database Mapping
+                      </p>
+                      <span className="text-[10px] font-mono font-bold text-purple-700 bg-white px-2 py-0.5 rounded-lg border border-purple-200">
+                        Live Auto-Sync
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {STANDARD_FORM_FIELDS.map((f) => (
+                        <div
+                          key={f.name}
+                          className="flex items-center justify-between bg-white border border-purple-100 p-2.5 rounded-xl shadow-2xs"
+                        >
+                          <span className="font-bold text-slate-800 font-mono text-[11px]">
+                            {f.label}
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
+                            → {f.name}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <a
+                        href={sheetUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-bold text-purple-700 hover:text-purple-800 hover:underline inline-flex items-center gap-1"
                       >
-                        <span className="font-bold text-slate-800 font-mono text-[11px]">
-                          {f.label}
-                        </span>
-                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded">
-                          → {f.name}
-                        </span>
-                      </div>
-                    ))}
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Open Form in New Tab</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => setShowAppsScriptModal(true)}
+                        className="text-[11px] font-bold text-slate-600 hover:text-slate-900 hover:underline inline-flex items-center gap-1"
+                      >
+                        <Zap className="w-3 h-3 text-amber-500" />
+                        <span>Setup Webhook Trigger (Apps Script)</span>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center justify-between pt-1">
-                    <a
-                      href={sheetUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] font-bold text-purple-700 hover:text-purple-800 hover:underline inline-flex items-center gap-1"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      <span>Open Form in New Tab</span>
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => setShowAppsScriptModal(true)}
-                      className="text-[11px] font-bold text-slate-600 hover:text-slate-900 hover:underline inline-flex items-center gap-1"
-                    >
-                      <Zap className="w-3 h-3 text-amber-500" />
-                      <span>Setup Webhook Trigger (Apps Script)</span>
-                    </button>
-                  </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -1381,7 +1400,6 @@ export default function SheetSyncHub() {
                       setSheetUrl(val);
                       if (val.includes('docs.google.com/forms')) {
                         setSheetType('google_forms');
-                        if (!newSheetTitle) setNewSheetTitle('RESCUEBRIDGE FORM');
                       }
                     }}
                     className="w-full text-xs rounded-xl border border-slate-300 p-3 focus:ring-2 focus:ring-emerald-500 focus:outline-none transition-all font-mono"
@@ -1667,8 +1685,7 @@ export default function SheetSyncHub() {
                   type="button"
                   onClick={() => {
                     setSheetType('google_forms');
-                    setSheetUrl(DEFAULT_RESCUEBRIDGE_FORM_URL);
-                    if (!newSheetTitle) setNewSheetTitle('RESCUEBRIDGE FORM');
+                    setSheetUrl('');
                   }}
                   className={`p-2.5 rounded-xl border text-left flex flex-col gap-1 transition-all ${
                     sheetType === 'google_forms'
@@ -1715,15 +1732,17 @@ export default function SheetSyncHub() {
                       className="w-full text-xs rounded-xl border border-slate-300 p-2.5 font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                     />
                   </div>
-                  <div className="bg-purple-50 border border-purple-200/80 rounded-xl p-3 text-[11px] text-purple-900 space-y-1">
-                    <p className="font-bold flex items-center gap-1.5 text-purple-950">
-                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                      RESCUEBRIDGE FORM Detected
-                    </p>
-                    <p className="text-purple-700">
-                      All submissions with Patient Name, Phone, Doctor, Appointment Date, and Issue Detail will be entered into the database and displayed live.
-                    </p>
-                  </div>
+                  {sheetUrl.trim() && parseGoogleFormUrl(sheetUrl).isValid && (
+                    <div className="bg-purple-50 border border-purple-200/80 rounded-xl p-3 text-[11px] text-purple-900 space-y-1">
+                      <p className="font-bold flex items-center gap-1.5 text-purple-950">
+                        <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                        Google Form Link Detected
+                      </p>
+                      <p className="text-purple-700">
+                        All patient responses submitted to this form will be automatically saved to the database and displayed live.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1742,7 +1761,6 @@ export default function SheetSyncHub() {
                       setSheetUrl(val);
                       if (val.includes('docs.google.com/forms')) {
                         setSheetType('google_forms');
-                        if (!newSheetTitle) setNewSheetTitle('RESCUEBRIDGE FORM');
                       }
                     }}
                     className="w-full text-xs rounded-xl border border-slate-300 p-2.5 font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
@@ -1935,7 +1953,7 @@ export default function SheetSyncHub() {
 
             <div className="flex items-center justify-between bg-purple-50/70 border border-purple-200/80 p-3 rounded-2xl">
               <div>
-                <p className="text-xs font-bold text-purple-900">RESCUEBRIDGE FORM Fields</p>
+                <p className="text-xs font-bold text-purple-900">Google Form Fields</p>
                 <p className="text-[10px] text-purple-700">Pre-fill realistic patient response to test live sync</p>
               </div>
               <button
