@@ -12,6 +12,7 @@ export interface Hospital {
   sheet_id: string;
   sheet_type: SheetType;
   logo: string;
+  website?: string;
   whatsapp_template_name: string;
   created_at?: string;
   // Computed / UI stats

@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS hospitals (
     sheet_id TEXT,
     sheet_type TEXT DEFAULT 'google_sheets' CHECK (sheet_type IN ('google_sheets', 'excel_365', 'manual')),
     logo TEXT,
+    website TEXT,
     whatsapp_template_name TEXT DEFAULT 'patient_review_v1',
     created_at TIMESTAMPTZ DEFAULT now()
 );

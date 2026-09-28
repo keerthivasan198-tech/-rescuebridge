@@ -13,6 +13,8 @@ import {
   ArrowLeft,
   Sparkles,
   Zap,
+  Globe,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/db';
@@ -41,6 +43,8 @@ export default function Login() {
   // Onboarding Form
   const [newHospitalName, setNewHospitalName] = useState('');
   const [newSubdomain, setNewSubdomain] = useState('');
+  const [newWebsite, setNewWebsite] = useState('');
+  const [newLogoUrl, setNewLogoUrl] = useState('');
   const [newGoogleReviewUrl, setNewGoogleReviewUrl] = useState('');
   const [onboardLoading, setOnboardLoading] = useState(false);
 
@@ -128,24 +132,28 @@ export default function Login() {
   // Handle Onboarding Submit
   const handleOnboardSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newHospitalName || !newSubdomain) return;
+    if (!newHospitalName.trim() || !newSubdomain.trim()) return;
     setOnboardLoading(true);
 
     try {
       const created = await db.createHospital({
         name: newHospitalName.trim(),
         subdomain: newSubdomain.trim().toLowerCase(),
-        google_place_id: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+        website: newWebsite.trim() || undefined,
+        logo:
+          newLogoUrl.trim() ||
+          'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=128&q=80',
+        google_place_id: newGoogleReviewUrl.trim() || 'ChIJN1t_tDeuEmsRUsoyG83frY4',
         sheet_id: 'demo_sheet_id',
         sheet_type: 'google_sheets',
-        logo: 'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=128&q=80',
         whatsapp_template_name: 'patient_review_v1',
       });
 
       await switchUserRole('hospital_admin', created.id);
       navigate('/staff');
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || 'Failed to onboard hospital');
     } finally {
       setOnboardLoading(false);
     }
@@ -519,7 +527,7 @@ export default function Login() {
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Subdomain Slug *
                 </label>
-                <div className="flex items-center rounded-xl border border-slate-300 overflow-hidden bg-slate-50">
+                <div className="flex items-center rounded-xl border border-slate-300 overflow-hidden bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-500 focus-within:border-emerald-500">
                   <input
                     type="text"
                     required
@@ -534,6 +542,55 @@ export default function Login() {
                     .rescuebridge.com
                   </span>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Official Hospital Website
+                </label>
+                <div className="relative">
+                  <Globe className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="url"
+                    placeholder="https://www.apollohospitals.com"
+                    value={newWebsite}
+                    onChange={(e) => setNewWebsite(e.target.value)}
+                    className="w-full text-xs rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Hospital Logo URL
+                </label>
+                <div className="flex gap-2 items-center">
+                  <div className="relative flex-1">
+                    <ImageIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="url"
+                      placeholder="https://example.com/logo.png"
+                      value={newLogoUrl}
+                      onChange={(e) => setNewLogoUrl(e.target.value)}
+                      className="w-full text-xs rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  {newLogoUrl && (
+                    <div className="w-10 h-10 rounded-xl border border-slate-200 overflow-hidden flex items-center justify-center bg-slate-50 flex-shrink-0">
+                      <img
+                        src={newLogoUrl}
+                        alt="Logo preview"
+                        className="w-full h-full object-contain p-1"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Paste direct link to your hospital logo (PNG/JPG/SVG)
+                </p>
               </div>
 
               <div>
