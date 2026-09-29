@@ -84,6 +84,24 @@ if (fs.existsSync(distPath)) {
     }
     next();
   });
+} else {
+  // Informational landing page for backend-only deployments
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      status: 'online',
+      service: 'RescueBridge Backend API & Automation Service',
+      version: '1.0.0',
+      health: '/health',
+      backgroundSync: 'active (2-minute recurring interval)',
+      frontend: 'Deployed on Vercel',
+      endpoints: {
+        health: '/health',
+        formWebhook: '/api/form-webhook',
+        sheetsSync: '/api/sheets/sync',
+        sheetHeaders: '/api/sheets/headers',
+      },
+    });
+  });
 }
 
 // 404 Handler for unresolved API or asset routes
