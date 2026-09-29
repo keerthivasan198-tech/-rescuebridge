@@ -64,6 +64,8 @@ export interface Visit {
   row_hash?: string;                  // SHA fingerprint of row values
   historical?: boolean;               // True for backfilled initial import (no WhatsApp sent)
   review_requested?: boolean;         // Idempotency flag preventing duplicate WhatsApp dispatches
+  source?: 'google_forms' | 'google_sheets' | 'excel_365' | 'manual'; // Origin source of this consultation record
+  source_name?: string;               // Display label of the source (e.g. 'Google Form', 'patient_records.xlsx', 'OPD Sheet')
   deleted_at?: string | null;         // Soft delete timestamp
   token: string;
   created_at?: string;
@@ -108,10 +110,14 @@ export interface HospitalSheetConnection {
   hospital_id: string;
   sheet_type: 'google_sheets' | 'excel_365' | 'onedrive' | 'google_forms';
   sheet_id: string;
+  sheet_range?: string;
   table_name: string;
   column_mapping: ColumnMapping;
   status: 'connected' | 'active' | 'sync_broken' | 'disconnected';
+  sync_status?: 'connected' | 'syncing' | 'error' | 'disconnected';
   last_synced_at: string | null;
+  last_row_synced?: number;
+  last_error?: string | null;
   total_rows_tracked: number;
   created_at?: string;
 }

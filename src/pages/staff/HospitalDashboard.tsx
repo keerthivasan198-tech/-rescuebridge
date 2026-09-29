@@ -46,6 +46,7 @@ export default function HospitalDashboard() {
   // Filters
   const [selectedDept, setSelectedDept] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+  const [selectedSource, setSelectedSource] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFilter, setDateFilter] = useState('');
 
@@ -85,7 +86,7 @@ export default function HospitalDashboard() {
     "status": "completed"
   }
 ]`);
-  const [syncApiKey, setSyncApiKey] = useState('rb_live_secret_key_123');
+  const [syncApiKey, setSyncApiKey] = useState(() => localStorage.getItem('rb_sync_api_key') || '');
   const [syncResult, setSyncResult] = useState<{
     accepted: number;
     rejected: number;
@@ -210,13 +211,29 @@ export default function HospitalDashboard() {
     document.body.removeChild(link);
   };
 
+  // Helper to reliably identify the origin of any visit record
+  const getVisitSource = (v: Visit): 'google_forms' | 'google_sheets' | 'excel_365' | 'manual' => {
+    if (v.source) return v.source;
+    const uid = (v.visit_uid || v.sheet_row_id || '').toUpperCase();
+    if (uid.startsWith('GF-') || uid.includes('FORM')) return 'google_forms';
+    if (uid.startsWith('GS-') || uid.includes('SHEET') || uid.includes('GOOGLE')) return 'google_sheets';
+    if (uid.startsWith('IMP-') || uid.includes('EXCEL') || uid.includes('XLS') || uid.includes('CSV')) return 'excel_365';
+    return 'manual';
+  };
+
   // Filtered list
   const filteredVisits = visits.filter((v) => {
     const query = searchQuery.toLowerCase();
     const patientName = v.patient?.name?.toLowerCase() || '';
     const phone = v.patient?.phone || '';
     const doc = v.doctor.toLowerCase();
-    return patientName.includes(query) || phone.includes(query) || doc.includes(query);
+    const matchesQuery = patientName.includes(query) || phone.includes(query) || doc.includes(query);
+    if (!matchesQuery) return false;
+    if (selectedDept !== 'all' && v.department !== selectedDept) return false;
+    if (selectedStatus !== 'all' && v.status !== selectedStatus) return false;
+    if (dateFilter && v.visit_date !== dateFilter) return false;
+    if (selectedSource !== 'all' && getVisitSource(v) !== selectedSource) return false;
+    return true;
   });
 
   // Funnel Metrics
@@ -551,6 +568,19 @@ export default function HospitalDashboard() {
               />
             </div>
 
+            {/* Source */}
+            <select
+              value={selectedSource}
+              onChange={(e) => setSelectedSource(e.target.value)}
+              className="text-xs rounded-xl border border-slate-300 py-1.5 px-3 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+            >
+              <option value="all">All Sources</option>
+              <option value="google_sheets">Google Sheets</option>
+              <option value="google_forms">Google Forms</option>
+              <option value="excel_365">Excel Sheet</option>
+              <option value="manual">Manual Entry</option>
+            </select>
+
             {/* Department */}
             <select
               value={selectedDept}
@@ -611,6 +641,7 @@ export default function HospitalDashboard() {
               ) : (
                 filteredVisits.map((v) => {
                   const reviewUrl = `${window.location.origin}/review?token=${v.token}`;
+                  const sourceKind = getVisitSource(v);
                   return (
                     <tr key={v.id} className="hover:bg-slate-50/60 transition-colors">
                       {/* Patient */}
@@ -620,7 +651,24 @@ export default function HospitalDashboard() {
                             {v.patient?.name ? v.patient.name.charAt(0).toUpperCase() : 'P'}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-900 text-xs">{v.patient?.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-slate-900 text-xs">{v.patient?.name}</p>
+                              {sourceKind === 'google_forms' && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+                                  Google Form
+                                </span>
+                              )}
+                              {sourceKind === 'google_sheets' && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Google Sheet
+                                </span>
+                              )}
+                              {sourceKind === 'excel_365' && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                  Excel Sheet
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[11px] text-slate-400 font-mono mt-0.5">{v.patient?.phone}</p>
                           </div>
                         </div>

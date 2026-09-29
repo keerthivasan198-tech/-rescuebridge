@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Hospital, UserRole } from '../types/database';
 import { db } from '../services/db';
+import { verifyPassword } from '../utils/crypto';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -93,15 +94,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const user = users.find((u) => u.email.toLowerCase().trim() === cleanEmail);
     if (user) {
       if (password && user.password_hash) {
-        const storedHash = user.password_hash;
-        const matchesPlain = storedHash === password;
-        const matchesDemo =
-          storedHash.startsWith('$2a$10$DEMO_HASH_') &&
-          ((storedHash.includes('SUPER_ADMIN') && (password === 'admin123' || password === 'superadmin123')) ||
-           (storedHash.includes('STAFF') && (password === 'staff123' || password === 'admin123')) ||
-           password === 'admin123' || password === 'hospital123');
-
-        if (!matchesPlain && !matchesDemo) {
+        const isValid = await verifyPassword(password, user.password_hash);
+        if (!isValid) {
           return false;
         }
       }

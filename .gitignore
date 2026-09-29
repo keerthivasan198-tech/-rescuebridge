@@ -1,4 +1,4 @@
-# Logs
+# Logs & Runtime
 logs
 *.log
 npm-debug.log*
@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies & Build artifacts
 node_modules
 dist
 dist-ssr
@@ -23,9 +24,27 @@ dist-ssr
 *.sln
 *.sw?
 
-# Confidential Environment variables
+# Confidential Environment Variables & Secrets (Checklist #1)
 .env
-.env.production
-.env.local
-.env.*.local
+.env.*
+*.env
+**/.env
+**/.env.*
 !.env.example
+!server/.env.example
+
+# Service Account Keys, Private Certificates, and Token Files
+*.pem
+*.key
+*.crt
+*.pfx
+*.p12
+*service_account*.json
+*service-account*.json
+*credentials*.json
+GOOGLE_SERVICE_ACCOUNT_KEY*.json
+
+# Temporary queues & scratch files
+temp_form_queue.json
+*.tmp
+*.temp

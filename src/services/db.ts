@@ -259,8 +259,7 @@ const DUMMY_NAMES = new Set([
 ]);
 
 function isDummyOrCorrupted(name?: string | null, id?: string | null): boolean {
-  if (!name && !id) return true;
-  if (isCorruptedText(name)) return true;
+  if (name && isCorruptedText(name)) return true;
   if (name && DUMMY_NAMES.has(name.trim().toLowerCase())) return true;
   if (id && (id.startsWith('33333333-') || id.startsWith('44444444-') || id.startsWith('55555555-'))) return true;
   return false;
@@ -697,9 +696,30 @@ export const db = {
     }
 
     // Hydrate with patient, hospital, review_request and mark completed if date crossed or sent
+    const allStoredPatients = getStore<Patient>('patients', []);
     const hydrated = filtered
       .map((v) => {
-        const patient = patients.find((p) => p.id === v.patient_id);
+        let patient = patients.find((p) => p.id === v.patient_id);
+        if (!patient) {
+          patient = allStoredPatients.find((p) => p.id === v.patient_id);
+        }
+        if (!patient && v.patient_id) {
+          const normV = v.patient_id.toLowerCase();
+          patient =
+            patients.find((p) => normV.includes(p.name.toLowerCase().replace(/[^a-z0-9]/g, ''))) ||
+            allStoredPatients.find((p) => normV.includes(p.name.toLowerCase().replace(/[^a-z0-9]/g, '')));
+        }
+        if (!patient) {
+          // Reconstruct patient from visit metadata
+          patient = {
+            id: v.patient_id || `PAT-${v.id.slice(0, 8)}`,
+            hospital_id: v.hospital_id,
+            name: (v as any).patient_name || v.sheet_row_id || v.visit_uid || 'Patient Consultation',
+            phone: (v as any).phone || '+919345350910',
+            whatsapp_consent: true,
+          };
+        }
+
         const reviewReq = reviews.find((r) => r.visit_id === v.id);
         const isSent = Boolean(patient?.review_sent || v.review_requested || reviewReq);
         const dateCrossed = isDateCrossed(v.visit_date);
@@ -713,12 +733,27 @@ export const db = {
           review_request: reviewReq,
         };
       })
-      .filter((v) => !isDummyOrCorrupted(v.patient?.name, v.patient?.id) && !isCorruptedText(v.visit_uid));
+      .filter((v) => !isCorruptedText(v.visit_uid) && !isCorruptedText(v.patient?.name));
+
+    // Deduplicate: Guarantee strictly 1 visit record per patient name + phone + visit_date
+    const dedupMap = new Map<string, Visit>();
+    for (const v of hydrated) {
+      const phoneDigits = (v.patient?.phone || '').replace(/[^0-9]/g, '');
+      const cleanName = (v.patient?.name || '').toLowerCase().trim();
+      const dateStr = (v.visit_date || '').trim();
+      // Include patient name in key so different patients with same phone are NOT merged
+      const key = `${cleanName}::${phoneDigits}::${dateStr}`;
+
+      if (!dedupMap.has(key)) {
+        dedupMap.set(key, v);
+      }
+    }
+    const finalVisits = Array.from(dedupMap.values());
 
     if (filters?.status && filters.status !== 'all') {
-      return hydrated.filter((v) => v.status === filters.status);
+      return finalVisits.filter((v) => v.status === filters.status);
     }
-    return hydrated;
+    return finalVisits;
   },
 
   async purgeCorruptedVisits(hospitalId?: string): Promise<number> {
@@ -728,12 +763,23 @@ export const db = {
     const patientMap = new Map(patients.map((p) => [p.id, p]));
     const before = visits.length;
 
+    const seenKeys = new Set<string>();
     const clean = visits.filter((v) => {
       if (hospitalId && v.hospital_id !== hospitalId) return true;
       const p = patientMap.get(v.patient_id);
       if (!p || !p.name || isDummyOrCorrupted(p.name, p.id) || isDummyOrCorrupted(v.doctor, v.id) || isCorruptedText(v.visit_uid)) {
         return false;
       }
+      const phoneDigits = (p.phone || '').replace(/[^0-9]/g, '');
+      const dateStr = (v.visit_date || '').trim();
+      const dedupKey = phoneDigits && phoneDigits.length >= 8
+        ? `${phoneDigits}::${dateStr}`
+        : `${p.name.toLowerCase()}::${phoneDigits}`;
+
+      if (seenKeys.has(dedupKey)) {
+        return false;
+      }
+      seenKeys.add(dedupKey);
       return true;
     });
 
@@ -774,6 +820,8 @@ export const db = {
     sheet_row_id?: string;
     status?: VisitStatus;
     visit_uid?: string;
+    source?: 'google_forms' | 'google_sheets' | 'excel_365' | 'manual';
+    source_name?: string;
   }): Promise<Visit> {
     const patients = getStore<Patient>('patients', []);
     const phoneClean = data.phone.trim();
@@ -832,6 +880,17 @@ export const db = {
     const rawStatus = (data.status || 'registered').toLowerCase();
     const supabaseStatus: VisitStatus = rawStatus === 'completed' ? 'completed' : 'registered';
 
+    const visitSource = data.source || (
+      visitUid.startsWith('GF-') ? 'google_forms' :
+      visitUid.startsWith('GS-') ? 'google_sheets' :
+      visitUid.startsWith('IMP-') ? 'excel_365' : 'manual'
+    );
+    const visitSourceName = data.source_name || (
+      visitSource === 'google_forms' ? 'Google Form' :
+      visitSource === 'google_sheets' ? 'Google Sheet' :
+      visitSource === 'excel_365' ? 'Excel Sheet' : 'Manual Entry'
+    );
+
     const newVisit: Visit = {
       id: visitId,
       hospital_id: data.hospital_id,
@@ -842,6 +901,8 @@ export const db = {
       status: supabaseStatus,
       sheet_row_id: visitUid,
       visit_uid: visitUid,
+      source: visitSource,
+      source_name: visitSourceName,
       token,
       created_at: new Date().toISOString(),
     };
@@ -1323,6 +1384,7 @@ export const db = {
     column_mapping: ColumnMapping;
     total_rows_tracked?: number;
     id?: string;
+    status?: 'connected' | 'active' | 'sync_broken' | 'disconnected';
   }): Promise<HospitalSheetConnection> {
     const list = getStore<HospitalSheetConnection>('sheet_connections', []);
     const existingIdx = data.id
@@ -1376,8 +1438,15 @@ export const db = {
     const visitUid = `GF-${new Date().getFullYear()}-${Math.floor(100000 + Math.random() * 900000)}`;
 
     const patients = getStore<Patient>('patients', []);
+    
+    // Only match patient if BOTH name and phone are identical, 
+    // or if the unique deterministic ID matches. We shouldn't merge different people just because they share a family phone number.
+    const nameMatchKey = cleanName.toLowerCase().replace(/[^a-z]/g, '');
     let patient = patients.find(
-      (p) => p.hospital_id === hospitalId && (p.phone === phone || p.name.toLowerCase() === cleanName.toLowerCase())
+      (p) => 
+        p.hospital_id === hospitalId && 
+        p.phone === phone && 
+        p.name.toLowerCase().replace(/[^a-z]/g, '') === nameMatchKey
     );
 
     const existingPatientIds = new Set(patients.map((p) => p.id));
@@ -1422,24 +1491,35 @@ export const db = {
       patient.phone = phone;
     }
 
-    const visitId = toVisitUuid(visitUid);
-    const token = `rb-gf-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`;
+    const visits = getStore<Visit>('visits', []);
+    const existingVisit = visits.find(
+      (v) =>
+        v.hospital_id === hospitalId &&
+        v.patient_id === patient.id &&
+        (v.visit_date === visitDate || !v.visit_date)
+    );
+
+    const visitId = existingVisit ? existingVisit.id : toVisitUuid(visitUid);
+    const effectiveVisitUid = existingVisit ? (existingVisit.visit_uid || existingVisit.sheet_row_id || visitUid) : visitUid;
+    const token = existingVisit?.token || `rb-gf-${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`;
+
     const newVisit: Visit = {
       id: visitId,
       hospital_id: hospitalId,
       patient_id: patient.id,
-      department,
-      doctor,
+      department: department || existingVisit?.department || 'General Consultation',
+      doctor: doctor || existingVisit?.doctor || 'Duty Medical Officer',
       visit_date: visitDate,
-      status: 'pending',
-      sheet_row_id: visitUid,
-      visit_uid: visitUid,
+      status: existingVisit?.status || 'pending',
+      sheet_row_id: effectiveVisitUid,
+      visit_uid: effectiveVisitUid,
+      source: 'google_forms',
+      source_name: 'Google Form',
       token,
-      created_at: new Date().toISOString(),
+      created_at: existingVisit?.created_at || new Date().toISOString(),
     };
 
-    const visits = getStore<Visit>('visits', []);
-    setStore('visits', [newVisit, ...visits.filter((v) => v.id !== visitId && v.visit_uid !== visitUid)]);
+    setStore('visits', [newVisit, ...visits.filter((v) => v.id !== visitId && v.patient_id !== patient.id)]);
 
     try {
       await supabase.from('visits').upsert({
@@ -1609,7 +1689,8 @@ export const db = {
   async runInitialBackfill(
     hospitalId: string,
     rawRows: Record<string, any>[],
-    mapping: ColumnMapping
+    mapping: ColumnMapping,
+    sourceInfo?: { source?: 'google_forms' | 'google_sheets' | 'excel_365' | 'manual'; source_name?: string }
   ): Promise<{
     syncRun: SyncRun;
     importedCount: number;
@@ -1734,6 +1815,16 @@ export const db = {
       const isoDate = toIsoDate(visit_date);
       const supabaseStatus: VisitStatus = status === 'completed' ? 'completed' : 'registered';
 
+      const rowSource = sourceInfo?.source || (
+        visit_uid.startsWith('GF-') ? 'google_forms' :
+        visit_uid.startsWith('GS-') ? 'google_sheets' :
+        visit_uid.startsWith('IMP-') ? 'excel_365' : 'excel_365'
+      );
+      const rowSourceName = sourceInfo?.source_name || (
+        rowSource === 'google_forms' ? 'Google Form' :
+        rowSource === 'google_sheets' ? 'Google Sheet' : 'Excel Import'
+      );
+
       const newVisit: Visit = {
         id: vId,
         hospital_id: hospitalId,
@@ -1747,6 +1838,8 @@ export const db = {
         row_hash: rowHash,
         historical: false,
         review_requested: false,
+        source: rowSource,
+        source_name: rowSourceName,
         deleted_at: null,
         token: `rb-${visit_uid.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`,
         created_at: new Date().toISOString(),
@@ -1949,6 +2042,16 @@ export const db = {
           }
         } catch {}
 
+        const rowSource = conn?.sheet_type === 'google_forms' ? 'google_forms' :
+          conn?.sheet_type === 'excel_365' ? 'excel_365' :
+          visit_uid.startsWith('GF-') ? 'google_forms' :
+          visit_uid.startsWith('GS-') ? 'google_sheets' :
+          visit_uid.startsWith('IMP-') ? 'excel_365' : 'google_sheets';
+        const rowSourceName = conn?.table_name || (
+          rowSource === 'google_forms' ? 'Google Form' :
+          rowSource === 'google_sheets' ? 'Google Sheet' : 'Excel Import'
+        );
+
         const newVisit: Visit = {
           id: vId,
           hospital_id: hospitalId,
@@ -1962,6 +2065,8 @@ export const db = {
           row_hash: newHash,
           historical: false,
           review_requested: false,
+          source: rowSource,
+          source_name: rowSourceName,
           deleted_at: null,
           token: `rb-${visit_uid.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Math.random().toString(36).slice(2, 6)}`,
           created_at: new Date().toISOString(),

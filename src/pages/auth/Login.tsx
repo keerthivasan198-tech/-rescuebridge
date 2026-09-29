@@ -24,6 +24,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { db } from '../../services/db';
 import { Hospital } from '../../types/database';
+import { hashPassword } from '../../utils/crypto';
 
 export default function Login() {
   const navigate = useNavigate();
@@ -261,12 +262,15 @@ export default function Login() {
 
     setLoading(true);
     try {
-      // 1. Check or upsert super_admin user credentials in database
+      // 1. Cryptographically hash password before storing in database (Security Checklist #2)
+      const hashedPassword = await hashPassword(adminPassword);
+
+      // Check or upsert super_admin user credentials in database
       await db.createUser({
         hospital_id: null,
         name: 'Super Admin',
         email: cleanEmail,
-        password_hash: adminPassword,
+        password_hash: hashedPassword,
         role: 'super_admin',
       });
 
@@ -353,12 +357,15 @@ export default function Login() {
         whatsapp_template_name: 'patient_review_v1',
       });
 
-      // 2. Create or link the Hospital Administrator user account with password
+      // 2. Cryptographically hash password before storing (Security Checklist #2)
+      const hashedPassword = await hashPassword(newAdminPassword);
+
+      // Create or link the Hospital Administrator user account with hashed password
       await db.createUser({
         hospital_id: createdHospital.id,
         name: `${createdHospital.name} Admin`,
         email: cleanEmail,
-        password_hash: newAdminPassword,
+        password_hash: hashedPassword,
         role: 'hospital_admin',
       });
 
