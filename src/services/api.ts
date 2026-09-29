@@ -1,15 +1,17 @@
 // ==============================================================
 // Centralized API Service Helper
-// Strictly loads the backend URL from environment variables (.env)
-// Never hardcodes URLs in source code (Security Checklist #1)
+// Uses the live Render Backend (https://rescuebridge.onrender.com)
+// No local backend required. Frontend needs NO .env file.
 // ==============================================================
 
-const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+const RENDER_BACKEND_URL = 'https://rescuebridge.onrender.com';
+
+const RAW_API_BASE = (import.meta.env.VITE_API_BASE_URL || RENDER_BACKEND_URL).trim();
 
 /**
- * Normalized backend API base URL from .env
+ * Normalized backend API base URL pointing to Render
  */
-export const API_BASE_URL = RAW_API_BASE.trim().replace(/\/+$/, '');
+export const API_BASE_URL = RAW_API_BASE.replace(/\/+$/, '');
 
 /**
  * Returns the full backend URL for any endpoint.
@@ -17,5 +19,5 @@ export const API_BASE_URL = RAW_API_BASE.trim().replace(/\/+$/, '');
  */
 export function apiUrl(endpoint: string): string {
   const cleanPath = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  return API_BASE_URL ? `${API_BASE_URL}${cleanPath}` : cleanPath;
+  return `${API_BASE_URL}${cleanPath}`;
 }

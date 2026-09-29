@@ -7,11 +7,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      // Clean, secure proxy of all API endpoints to the dedicated backend server
+      // Proxies all /api requests directly to live Render backend
       '/api': {
-        target: 'http://localhost:5001',
+        target: 'https://rescuebridge.onrender.com',
         changeOrigin: true,
-        secure: false,
+        secure: true,
       },
     },
   },
