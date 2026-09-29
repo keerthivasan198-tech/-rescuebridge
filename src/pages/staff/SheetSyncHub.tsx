@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { useAuth } from '../../context/AuthContext';
+import { apiUrl } from '../../services/api';
 import { db, isDateCrossed } from '../../services/db';
 import { supabase } from '../../services/supabase';
 import {
@@ -77,7 +78,7 @@ export default function SheetSyncHub() {
 
   // Fetch Service Account email on mount
   useEffect(() => {
-    fetch('/api/sheets/service-account')
+    fetch(apiUrl('/api/sheets/service-account'))
       .then(r => r.json())
       .then(d => { if (d.email) setServiceEmail(d.email); })
       .catch(() => {});
@@ -447,8 +448,8 @@ export default function SheetSyncHub() {
   useEffect(() => {
     const poller = setInterval(async () => {
       try {
-        // 1. Check local webhook queue (if dev server middleware is active)
-        const resp = await fetch('/api/google-form-responses');
+        // 1. Check webhook queue from backend API
+        const resp = await fetch(apiUrl('/api/google-form-responses'));
         if (resp.ok) {
           const { queue } = await resp.json();
           if (Array.isArray(queue) && queue.length > 0) {
@@ -467,7 +468,7 @@ export default function SheetSyncHub() {
               }
             }
             if (processedIds.length > 0) {
-              await fetch('/api/google-form-responses/clear', {
+              await fetch(apiUrl('/api/google-form-responses/clear'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids: processedIds }),
@@ -499,7 +500,7 @@ export default function SheetSyncHub() {
       if (!storedSheetUrl) return;
 
       try {
-        const resp = await fetch(`/api/fetch-google-sheet?url=${encodeURIComponent(storedSheetUrl)}`);
+        const resp = await fetch(apiUrl(`/api/fetch-google-sheet?url=${encodeURIComponent(storedSheetUrl)}`));
         if (!resp.ok) return;
         const data = await resp.json();
         if (!data.success || !data.csv) return;
@@ -669,7 +670,7 @@ export default function SheetSyncHub() {
     try {
       const googleMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
       const sheetId = googleMatch ? googleMatch[1] : sheetUrl;
-      const resp = await fetch(`/api/sheets/headers?sheetId=${sheetId}`);
+      const resp = await fetch(apiUrl(`/api/sheets/headers?sheetId=${sheetId}`));
       const data = await resp.json();
       if (!data.success) {
         throw new Error(data.error || 'Failed to fetch headers');
@@ -755,7 +756,7 @@ export default function SheetSyncHub() {
         // Try to fetch responses from the linked Google Sheet
         if (fetchSheetUrl && rowsToImport.length === 0) {
           try {
-            const resp = await fetch(`/api/fetch-google-sheet?url=${encodeURIComponent(fetchSheetUrl)}`);
+            const resp = await fetch(apiUrl(`/api/fetch-google-sheet?url=${encodeURIComponent(fetchSheetUrl)}`));
             const data = await resp.json();
             if (resp.status === 401 || data.status === 401) {
               alert(
@@ -835,7 +836,7 @@ export default function SheetSyncHub() {
         
         // Trigger initial background sync
         try {
-          const resp = await fetch('/api/sheets/sync', {
+          const resp = await fetch(apiUrl('/api/sheets/sync'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ connectionId: conn.id, hospitalId }),
@@ -1014,7 +1015,7 @@ export default function SheetSyncHub() {
     setSyncing(true);
     try {
       if (connection && connection.sheet_type === 'google_sheets') {
-        const resp = await fetch('/api/sheets/sync', {
+        const resp = await fetch(apiUrl('/api/sheets/sync'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ connectionId: connection.id, hospitalId }),

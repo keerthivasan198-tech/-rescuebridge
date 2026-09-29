@@ -68,8 +68,9 @@ export function parseGoogleFormUrl(url: string): {
  * Universally supports both Google Sheets (linked responses) and Google Forms directly.
  */
 export function generateAppsScriptSnippet(hospitalId: string, apiEndpoint?: string, secretApiKey?: string): string {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5173';
-  const endpoint = apiEndpoint || `${origin}/api/form-webhook`;
+  const backendBase = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '');
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const endpoint = apiEndpoint || (backendBase ? `${backendBase}/api/form-webhook` : `${origin}/api/form-webhook`);
   const keyToUse = secretApiKey || (typeof window !== 'undefined' ? localStorage.getItem('rb_sync_api_key') : '') || 'REPLACE_WITH_YOUR_SECRET_API_KEY';
   return `/**
  * RescueBridge Cloud-Connected Real-Time Google Sheet & Form Webhook
