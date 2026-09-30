@@ -43,9 +43,15 @@ dist-ssr
 *service_account*.json
 *service-account*.json
 *credentials*.json
+*client_secret*.json
+client_secret*.json
 GOOGLE_SERVICE_ACCOUNT_KEY*.json
 
 # Temporary queues & scratch files
 temp_form_queue.json
+server/data/*
+!server/data/.gitkeep
+*oauth_tokens*.json
 *.tmp
 *.temp
+

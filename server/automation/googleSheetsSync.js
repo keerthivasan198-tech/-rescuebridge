@@ -7,7 +7,9 @@ const https = require('https');
 const XLSX = require('xlsx');
 const { supabaseRequest } = require('../utils/supabaseClient');
 const { validateGoogleSheetUrl, sanitizePhone, sanitizeString } = require('../utils/inputValidator');
+const { getAuthenticatedClientForHospital } = require('../utils/googleOAuthManager');
 const logger = require('../utils/logger');
+
 
 let authClient = null;
 let googleLib = null;
@@ -43,16 +45,39 @@ function getAuthClient() {
   }
 }
 
-// Fetch all rows from a sheet (via Service Account or secure Gviz CSV)
-async function fetchAllSheetRows(sheetId, range = 'Sheet1!A:Z') {
+// Fetch all rows from a sheet (via Hospital OAuth, Service Account, or secure Gviz CSV)
+async function fetchAllSheetRows(sheetId, range = 'Sheet1!A:Z', hospitalId = null) {
   // Validate sheetId format to prevent path traversal / injection
   if (!sheetId || !/^[a-zA-Z0-9-_]+$/.test(sheetId)) {
     throw new Error('Invalid sheetId format.');
   }
 
+  // Method 1: Hospital Administrator OAuth 2.0 Token (1-Click Google Connect)
+  if (hospitalId) {
+    try {
+      const oauthClient = await getAuthenticatedClientForHospital(hospitalId);
+      if (oauthClient) {
+        const google = getGoogle();
+        if (google) {
+          const sheets = google.sheets({ version: 'v4', auth: oauthClient });
+          const resp = await sheets.spreadsheets.values.get({
+            spreadsheetId: sheetId,
+            range: range || 'Sheet1!A:Z',
+          });
+          if (resp.data && resp.data.values && resp.data.values.length > 0) {
+            logger.info(`Successfully fetched ${resp.data.values.length} rows using hospital OAuth token.`);
+            return resp.data.values;
+          }
+        }
+      }
+    } catch (oauthErr) {
+      logger.warn(`Hospital OAuth API call failed (${oauthErr.message}), trying fallback authentication...`);
+    }
+  }
+
   const auth = getAuthClient();
 
-  // Method A: Official Service Account v4 API
+  // Method 2: Official Service Account v4 API
   if (auth) {
     try {
       const google = getGoogle();
@@ -69,7 +94,7 @@ async function fetchAllSheetRows(sheetId, range = 'Sheet1!A:Z') {
     }
   }
 
-  // Method B: Google Visualization API / CSV Export (SSRF-safe, strictly docs.google.com)
+  // Method 3: Google Visualization API / CSV Export (SSRF-safe, strictly docs.google.com)
   return new Promise((resolve, reject) => {
     const gvizUrl = `https://docs.google.com/spreadsheets/d/${encodeURIComponent(sheetId)}/gviz/tq?tqx=out:csv`;
     https.get(gvizUrl, (res) => {
@@ -77,7 +102,7 @@ async function fetchAllSheetRows(sheetId, range = 'Sheet1!A:Z') {
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         if (res.statusCode !== 200) {
-          return reject(new Error(`Google Sheet returned HTTP ${res.statusCode}. Ensure sheet is shared with Viewer permissions.`));
+          return reject(new Error(`Google Sheet returned HTTP ${res.statusCode}. Ensure sheet is shared or connected via Google OAuth.`));
         }
         try {
           const wb = XLSX.read(data, { type: 'string' });
@@ -93,8 +118,8 @@ async function fetchAllSheetRows(sheetId, range = 'Sheet1!A:Z') {
 }
 
 // Read headers for the UI
-async function getSheetHeaders(sheetId) {
-  const rows = await fetchAllSheetRows(sheetId, 'Sheet1!1:1');
+async function getSheetHeaders(sheetId, hospitalId = null) {
+  const rows = await fetchAllSheetRows(sheetId, 'Sheet1!1:1', hospitalId);
   if (rows && rows.length > 0) {
     return rows[0];
   }
@@ -171,7 +196,7 @@ async function performSync(connection) {
   logger.info(`Starting sheet sync for hospital ${hospitalId}`);
 
   try {
-    const allRows = await fetchAllSheetRows(connection.sheet_id);
+    const allRows = await fetchAllSheetRows(connection.sheet_id, 'Sheet1!A:Z', hospitalId);
     if (!allRows || allRows.length === 0) {
       await supabaseRequest(`hospital_sheet_connections?id=eq.${connection.id}`, {
         method: 'PATCH',

@@ -34,11 +34,12 @@ router.get('/sheets/service-account', (req, res) => {
 router.get('/sheets/headers', async (req, res) => {
   try {
     const sheetId = sanitizeString(req.query.sheetId, 100);
+    const hospitalId = sanitizeString(req.query.hospitalId, 64);
     if (!sheetId) {
       return res.status(400).json({ error: 'Query parameter "sheetId" is required.' });
     }
 
-    const headers = await getSheetHeaders(sheetId);
+    const headers = await getSheetHeaders(sheetId, hospitalId);
     return res.status(200).json({ success: true, headers });
   } catch (err) {
     logger.error('Error fetching sheet headers', err);

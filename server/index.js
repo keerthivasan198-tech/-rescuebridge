@@ -21,6 +21,8 @@ const { startCron, stopCron } = require('./automation/googleSheetsSync');
 const webhookRoutes = require('./routes/webhookRoutes');
 const sheetSyncRoutes = require('./routes/sheetSyncRoutes');
 const healthRoutes = require('./routes/healthRoutes');
+const googleOAuthRoutes = require('./routes/googleOAuthRoutes');
+
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -69,7 +71,9 @@ app.use((req, res, next) => {
 // 7. Mount API Routes
 app.use('/api', webhookRoutes);
 app.use('/api', sheetSyncRoutes);
+app.use('/api', googleOAuthRoutes);
 app.use('/', healthRoutes);
+
 
 // 8. Serve Frontend Static Assets in Production (Render Deployment)
 const fs = require('fs');

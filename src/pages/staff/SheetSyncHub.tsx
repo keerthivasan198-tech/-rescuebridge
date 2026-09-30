@@ -84,6 +84,70 @@ export default function SheetSyncHub() {
       .catch(() => {});
   }, []);
 
+  // Google OAuth 2.0 Integration State
+  const [oauthConnected, setOauthConnected] = useState(false);
+  const [oauthEmail, setOauthEmail] = useState<string | null>(null);
+  const [connectingOAuth, setConnectingOAuth] = useState(false);
+  const [showLegacyServiceAccount, setShowLegacyServiceAccount] = useState(false);
+
+  const checkOAuthStatus = async () => {
+    try {
+      const res = await fetch(apiUrl(`/api/auth/google/status?hospitalId=${hospitalId}`));
+      if (res.ok) {
+        const data = await res.json();
+        if (data.connected) {
+          setOauthConnected(true);
+          setOauthEmail(data.email || 'Admin');
+        } else {
+          setOauthConnected(false);
+          setOauthEmail(null);
+        }
+      }
+    } catch {
+      // Fail silently
+    }
+  };
+
+  useEffect(() => {
+    checkOAuthStatus();
+  }, [hospitalId]);
+
+  const handleConnectGoogleOAuth = async () => {
+    setConnectingOAuth(true);
+    try {
+      const res = await fetch(
+        apiUrl(`/api/auth/google/url?hospitalId=${hospitalId}&returnTo=/staff/sheet-sync`)
+      );
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Failed to obtain Google login link. Please verify backend server is running.');
+        setConnectingOAuth(false);
+      }
+    } catch (err: any) {
+      alert('Error initiating Google connection: ' + err.message);
+      setConnectingOAuth(false);
+    }
+  };
+
+  const handleDisconnectGoogleOAuth = async () => {
+    if (!window.confirm('Disconnect your Google account from RescueBridge?')) return;
+    try {
+      await fetch(apiUrl('/api/auth/google/disconnect'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ hospitalId }),
+      });
+      setOauthConnected(false);
+      setOauthEmail(null);
+      setSaveSuccessMessage('Google Account disconnected.');
+      setTimeout(() => setSaveSuccessMessage(null), 3000);
+    } catch (err: any) {
+      alert('Failed to disconnect: ' + err.message);
+    }
+  };
+
   // Google Form Ingestion State
   const [showGoogleFormModal, setShowGoogleFormModal] = useState(false);
   const [googleFormSubmission, setGoogleFormSubmission] = useState({
@@ -271,19 +335,30 @@ export default function SheetSyncHub() {
     return '';
   };
 
-  const parseDateToIso = (dStr?: string): string => {
+  const parseDateToIso = (dStr?: string | number): string => {
     if (!dStr) return new Date().toISOString().split('T')[0];
     const s = String(dStr).trim();
     if (s.includes('T')) return s.split('T')[0];
     if (s.includes(' ')) {
       return parseDateToIso(s.split(' ')[0]);
     }
+    // Handle Excel Serial Dates (e.g. 46295.00011)
+    if (!isNaN(Number(s))) {
+      const num = Number(s);
+      if (num > 30000 && num < 65000) {
+        const d = new Date((num - 25569) * 86400 * 1000);
+        if (!isNaN(d.getTime())) {
+          return d.toISOString().split('T')[0];
+        }
+      }
+    }
     if (s.includes('/')) {
       const parts = s.split('/');
-      if (parts.length === 3 && parts[2].length === 4) {
+      if (parts.length === 3) {
         const p0 = parseInt(parts[0], 10);
         const p1 = parseInt(parts[1], 10);
-        const y = parts[2];
+        let y = parts[2];
+        if (y.length === 2) y = '20' + y;
         if (p0 > 12) {
           return `${y}-${String(p1).padStart(2, '0')}-${String(p0).padStart(2, '0')}`;
         } else {
@@ -670,7 +745,7 @@ export default function SheetSyncHub() {
     try {
       const googleMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
       const sheetId = googleMatch ? googleMatch[1] : sheetUrl;
-      const resp = await fetch(apiUrl(`/api/sheets/headers?sheetId=${sheetId}`));
+      const resp = await fetch(apiUrl(`/api/sheets/headers?sheetId=${sheetId}&hospitalId=${hospitalId}`));
       const data = await resp.json();
       if (!data.success) {
         throw new Error(data.error || 'Failed to fetch headers');
@@ -693,7 +768,7 @@ export default function SheetSyncHub() {
       setMapping(newMapping as ColumnMapping);
       setConnectionStep(2);
     } catch (err: any) {
-      alert(`Could not read sheet. Did you share it with the service account?\n\nError: ${err.message}`);
+      alert(`Could not read spreadsheet columns.\n\nTip: If your Google Sheet is private, click "Connect Google Sheet" above to link your Google account in 1 click!\n\nDetails: ${err.message}`);
     } finally {
       setSyncing(false);
     }
@@ -816,17 +891,43 @@ export default function SheetSyncHub() {
         return;
       }
 
-      // ── Scenario B: Google Sheets (Service Account) ───────────────────────
+      // ── Scenario B: Google Sheets (OAuth & Live Sync) ───────────────────────
       if (sheetType === 'google_sheets') {
-        const googleMatch = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        const sheetId = googleMatch ? googleMatch[1] : sheetUrl;
+        const inputUrl = sheetUrl.trim();
+        const googleMatch = inputUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        const sheetId = googleMatch ? googleMatch[1] : inputUrl;
+        const finalTitle = newSheetTitle.trim() || 'Google Sheet Connection';
         
-        // Save Connection to DB
+        let rowsToImport: any[] = [];
+
+        // 1. Fetch rows immediately from the Google Sheet
+        try {
+          const resp = await fetch(apiUrl(`/api/fetch-google-sheet?url=${encodeURIComponent(inputUrl)}`));
+          const data = await resp.json();
+          if (data.success && data.csv) {
+            const workbook = XLSX.read(data.csv, { type: 'string' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rawJson = XLSX.utils.sheet_to_json<Record<string, any>>(sheet, { defval: '' });
+            rowsToImport = rawJson.map((r, i) => parseRawRow(r, i)).filter(Boolean) as any[];
+          }
+        } catch (e) {
+          console.warn('Direct live sheet fetch failed, falling back to server-side sync:', e);
+        }
+
+        // 2. Import parsed rows into database
+        if (rowsToImport.length > 0) {
+          await db.runInitialBackfill(hospitalId, rowsToImport, mapping, {
+            source: 'google_sheets',
+            source_name: finalTitle,
+          });
+        }
+
+        // 3. Save Connection to DB
         const conn = await db.saveSheetConnection({
           hospital_id: hospitalId,
           sheet_type: 'google_sheets',
           sheet_id: sheetId,
-          table_name: newSheetTitle || 'Google Sheet Connection',
+          table_name: finalTitle,
           column_mapping: mapping,
           status: 'connected',
         });
@@ -834,7 +935,7 @@ export default function SheetSyncHub() {
         setNewSheetTitle('');
         setConnectionStep(1);
         
-        // Trigger initial background sync
+        // 4. Trigger background server sync
         try {
           const resp = await fetch(apiUrl('/api/sheets/sync'), {
             method: 'POST',
@@ -843,16 +944,23 @@ export default function SheetSyncHub() {
           });
           const result = await resp.json();
           if (result.success) {
-            setSaveSuccessMessage(`Connected! Downloaded ${result.added} patient consultations automatically.`);
+            const count = rowsToImport.length > 0 ? rowsToImport.length : result.added;
+            setSaveSuccessMessage(`⚡ Connected! Synced ${count} patient consultations into database & live UI.`);
           } else {
-            setSaveSuccessMessage('Connected, but initial sync had issues: ' + result.error);
+            setSaveSuccessMessage(
+              rowsToImport.length > 0
+                ? `⚡ Connected! Imported ${rowsToImport.length} patient consultations into database & live UI.`
+                : `Connected, but background sync note: ${result.error || 'Running next cycle'}`
+            );
           }
         } catch (err) {
-          console.warn('Initial sync trigger failed:', err);
+          if (rowsToImport.length > 0) {
+            setSaveSuccessMessage(`⚡ Connected! Imported ${rowsToImport.length} patient consultations into database & live UI.`);
+          }
         }
 
         await loadData();
-        setTimeout(() => setSaveSuccessMessage(null), 5000);
+        setTimeout(() => setSaveSuccessMessage(null), 6000);
         setIsEditing(false);
         setSyncing(false);
         return;

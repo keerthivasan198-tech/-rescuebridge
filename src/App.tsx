@@ -27,11 +27,13 @@ import FeedbackCompleted from './pages/patient/FeedbackCompleted';
 
 // Sheet Sync Hub (Part A & B)
 import SheetSyncHub from './pages/staff/SheetSyncHub';
+import OAuthCallbackHandler from './components/OAuthCallbackHandler';
 
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <OAuthCallbackHandler />
         <Routes>
           {/* ── Landing & Role Authentication (Step 3) ───────────────── */}
           <Route path="/" element={<Login />} />
